@@ -262,9 +262,9 @@ const AdminDashboard = () => {
             <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Atualizar</span>
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-xs gap-1.5 h-8">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Remixer</span>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/?remixer")} className="text-xs gap-1.5 h-8">
+            <Zap className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Usar Remixer</span>
           </Button>
         </div>
       </div>
