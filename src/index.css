@@ -84,5 +84,6 @@
       hsl(var(--glow) / 0.015) 6px
     );
   }
+}
 
 #lovable-badge { display: none !important; }
