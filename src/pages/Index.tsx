@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import RepoInput from "@/components/RepoInput";
 import LogLine, { LogStatus } from "@/components/LogLine";
-import { ArrowDown, Zap, AlertTriangle, Terminal } from "lucide-react";
+import { ArrowDown, Zap, AlertTriangle, Terminal, GitBranch, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 
@@ -121,142 +120,214 @@ const Index = () => {
   const isValid = sourceRepo && targetRepo && sourceToken && (sameAccount || targetToken);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background">
-      {/* FORM AREA - scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="max-w-lg mx-auto px-4 py-5 sm:px-6 sm:py-8">
-          {/* Header */}
-          <div className="text-center mb-5 sm:mb-6">
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground glow-text flex items-center justify-center gap-2.5">
-              <Zap className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
-              GitHub Remixer
-            </h1>
-            <p className="text-muted-foreground text-xs sm:text-sm mt-1.5 tracking-wide">
-              Clona o conteúdo da mãe e substitui tudo na filha
-            </p>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Scanline overlay */}
+      <div className="fixed inset-0 scanline pointer-events-none z-50 opacity-30" />
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col items-center justify-start px-4 py-6 sm:py-10 pb-0">
+        {/* Header */}
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 mb-4">
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
+            <span className="text-[11px] text-primary font-mono tracking-widest uppercase">Online</span>
           </div>
+          <h1 className="text-2xl sm:text-4xl font-bold text-foreground glow-text flex items-center justify-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
+              <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+            </div>
+            GitHub Remixer
+          </h1>
+          <p className="text-muted-foreground text-xs sm:text-sm mt-2 max-w-xs mx-auto leading-relaxed">
+            Clona o conteúdo de um repo e substitui tudo no destino
+          </p>
+        </div>
 
-          {/* Card */}
-          <div className="bg-card border border-border rounded-xl p-4 sm:p-6 glow-box space-y-4">
-            {/* Terminal dots */}
-            <div className="flex items-center gap-2 pb-3 border-b border-border">
-              <div className="w-3 h-3 rounded-full bg-destructive" />
-              <div className="w-3 h-3 rounded-full bg-accent" />
-              <div className="w-3 h-3 rounded-full bg-primary" />
-              <span className="text-muted-foreground text-[11px] ml-2 tracking-wider">github-remixer v1.0</span>
+        {/* Card */}
+        <div className="w-full max-w-md">
+          <div className="bg-card/80 backdrop-blur-sm border border-border rounded-2xl overflow-hidden glow-box">
+            {/* Card header */}
+            <div className="flex items-center gap-2 px-5 py-3 bg-muted/30 border-b border-border">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-[hsl(0,72%,50%)]" />
+                <div className="w-3 h-3 rounded-full bg-[hsl(45,90%,55%)]" />
+                <div className="w-3 h-3 rounded-full bg-primary" />
+              </div>
+              <span className="text-muted-foreground text-[11px] ml-1 font-mono tracking-wider">remixer.sh</span>
             </div>
 
-            <RepoInput
-              label="Conta Mãe (fonte)"
-              prefix="[MÃE]"
-              placeholder="https://github.com/user/repo"
-              value={sourceRepo}
-              onChange={setSourceRepo}
-            />
-
-            <div className="flex justify-center py-1">
-              <ArrowDown className="w-5 h-5 text-primary animate-pulse-glow" />
-            </div>
-
-            <RepoInput
-              label="Conta Filha (destino)"
-              prefix="[FILHA]"
-              placeholder="https://github.com/user/repo"
-              value={targetRepo}
-              onChange={setTargetRepo}
-            />
-
-            {/* Warning */}
-            <div className="flex items-center gap-2.5 bg-destructive/10 border border-destructive/30 rounded-lg p-3">
-              <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
-              <p className="text-xs text-destructive leading-snug">
-                Conteúdo da filha será <strong>apagado</strong> e substituído.
-              </p>
-            </div>
-
-            {/* Same account toggle */}
-            <div className="flex items-center justify-between bg-muted rounded-lg p-3 border border-border">
-              <label className="text-xs text-secondary-foreground">Mesma conta? (1 token)</label>
-              <Switch checked={sameAccount} onCheckedChange={setSameAccount} />
-            </div>
-
-            {/* Token(s) */}
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">
-                  <span className="text-primary font-semibold">[TOKEN {sameAccount ? "ÚNICO" : "MÃE"}]</span>{" "}
-                  {sameAccount ? "Acesso aos dois repos" : "Conta fonte"}
+            {/* Card body */}
+            <div className="p-5 sm:p-6 space-y-5">
+              {/* Source repo */}
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground flex items-center gap-2">
+                  <GitBranch className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-primary font-bold">[MÃE]</span>
+                  <span>Repo fonte</span>
                 </label>
                 <input
-                  type="password"
-                  value={sourceToken}
-                  onChange={(e) => setSourceToken(e.target.value)}
-                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                  className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20 glow-border font-mono text-xs"
+                  value={sourceRepo}
+                  onChange={(e) => setSourceRepo(e.target.value)}
+                  placeholder="https://github.com/user/repo"
+                  className="w-full bg-background/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 font-mono text-xs transition-all duration-200"
                 />
               </div>
 
-              {!sameAccount && (
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">
-                    <span className="text-primary font-semibold">[TOKEN FILHA]</span> Conta destino
+              {/* Arrow */}
+              <div className="flex justify-center">
+                <div className="p-2 bg-primary/5 rounded-full border border-primary/10">
+                  <ArrowDown className="w-4 h-4 text-primary animate-pulse-glow" />
+                </div>
+              </div>
+
+              {/* Target repo */}
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground flex items-center gap-2">
+                  <GitBranch className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-primary font-bold">[FILHA]</span>
+                  <span>Repo destino</span>
+                </label>
+                <input
+                  value={targetRepo}
+                  onChange={(e) => setTargetRepo(e.target.value)}
+                  placeholder="https://github.com/user/repo"
+                  className="w-full bg-background/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 font-mono text-xs transition-all duration-200"
+                />
+              </div>
+
+              {/* Warning */}
+              <div className="flex items-center gap-3 bg-destructive/5 border border-destructive/20 rounded-xl p-3.5">
+                <div className="p-1.5 bg-destructive/10 rounded-lg">
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                </div>
+                <p className="text-xs text-destructive/90 leading-relaxed">
+                  O conteúdo do repo filha será <strong>completamente substituído</strong>.
+                </p>
+              </div>
+
+              {/* Same account toggle */}
+              <div className="flex items-center justify-between bg-background/40 rounded-xl p-4 border border-border/50">
+                <div>
+                  <p className="text-xs font-medium text-foreground">Mesma conta</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Usar apenas 1 token</p>
+                </div>
+                <Switch checked={sameAccount} onCheckedChange={setSameAccount} />
+              </div>
+
+              {/* Tokens */}
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <span className="text-primary font-bold">[TOKEN {sameAccount ? "ÚNICO" : "MÃE"}]</span>
+                    <span className="text-muted-foreground/70">{sameAccount ? "Acesso total" : "Conta fonte"}</span>
                   </label>
                   <input
                     type="password"
-                    value={targetToken}
-                    onChange={(e) => setTargetToken(e.target.value)}
+                    value={sourceToken}
+                    onChange={(e) => setSourceToken(e.target.value)}
                     placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                    className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20 glow-border font-mono text-xs"
+                    className="w-full bg-background/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 font-mono text-xs transition-all duration-200"
                   />
                 </div>
-              )}
 
-              <p className="text-[10px] sm:text-xs text-muted-foreground">
-                Permissão <span className="text-primary">repo</span> —{" "}
-                <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-primary underline hover:text-primary/80 transition-colors">
-                  criar token
+                {!sameAccount && (
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <span className="text-primary font-bold">[TOKEN FILHA]</span>
+                      <span className="text-muted-foreground/70">Conta destino</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={targetToken}
+                      onChange={(e) => setTargetToken(e.target.value)}
+                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                      className="w-full bg-background/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 font-mono text-xs transition-all duration-200"
+                    />
+                  </div>
+                )}
+
+                <a
+                  href="https://github.com/settings/tokens"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[11px] text-primary/70 hover:text-primary transition-colors"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Criar token com permissão <span className="font-bold">repo</span>
                 </a>
-              </p>
-            </div>
+              </div>
 
-            <Button
-              onClick={handleRemix}
-              disabled={isRunning || !isValid}
-              className="w-full h-11 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 glow-border rounded-lg transition-all duration-200"
-            >
-              {isRunning ? "⏳ Processando..." : "$ remix --execute"}
-            </Button>
+              {/* Submit */}
+              <Button
+                onClick={handleRemix}
+                disabled={isRunning || !isValid}
+                className="w-full h-12 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl glow-border transition-all duration-300 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
+              >
+                {isRunning ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    Processando...
+                  </span>
+                ) : (
+                  "$ remix --execute"
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* TERMINAL - fixed bottom */}
-      <div className="h-[200px] sm:h-[240px] flex-shrink-0 border-t-2 border-primary/20 bg-[hsl(220,25%,2%)] flex flex-col">
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border/50 bg-muted/10">
-          <Terminal className="w-3.5 h-3.5 text-primary" />
-          <span className="text-xs text-muted-foreground font-mono tracking-wider">terminal</span>
-          <div className={`w-2 h-2 rounded-full ml-auto transition-colors duration-300 ${isRunning ? "bg-primary animate-pulse-glow" : logs.length > 0 ? "bg-primary/40" : "bg-muted-foreground/20"}`} />
-        </div>
-        <div ref={terminalRef} className="flex-1 overflow-y-auto p-3 sm:p-4 font-mono text-[11px] sm:text-xs space-y-1">
-          {logs.length === 0 ? (
-            <div className="space-y-1">
-              <p className="text-muted-foreground">
-                <span className="text-terminal-dim">root@remixer</span>
-                <span className="text-muted-foreground">:</span>
-                <span className="text-primary">~</span>
-                <span className="text-muted-foreground">$ _</span>
-              </p>
-              <p className="text-muted-foreground/40">Aguardando...</p>
-            </div>
-          ) : (
-            logs.map((log, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <span className="text-muted-foreground/30 shrink-0 text-[10px] w-[76px] tabular-nums">{log.timestamp}</span>
-                <LogLine message={log.message} status={log.status} />
+      {/* TERMINAL */}
+      <div className="mt-6 sm:mt-8">
+        <div className="max-w-md mx-auto px-4 sm:px-0">
+          <div className="bg-[hsl(220,20%,3%)] border border-border/50 rounded-2xl overflow-hidden shadow-[0_0_40px_hsl(var(--primary)/0.05)]">
+            {/* Terminal header */}
+            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-muted/10 border-b border-border/30">
+              <Terminal className="w-4 h-4 text-primary/70" />
+              <span className="text-[11px] text-muted-foreground font-mono tracking-widest">terminal</span>
+              <div className="ml-auto flex items-center gap-2">
+                {isRunning && (
+                  <span className="text-[10px] text-primary/60 font-mono animate-pulse-glow">executando...</span>
+                )}
+                <div className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                  isRunning ? "bg-primary animate-pulse-glow shadow-[0_0_8px_hsl(var(--primary)/0.6)]" 
+                  : logs.length > 0 ? "bg-primary/30" 
+                  : "bg-muted-foreground/15"
+                }`} />
               </div>
-            ))
-          )}
-          {isRunning && <p className="text-primary animate-pulse-glow mt-1">▌</p>}
+            </div>
+
+            {/* Terminal body */}
+            <div ref={terminalRef} className="h-[180px] sm:h-[220px] overflow-y-auto p-4 font-mono text-[11px] sm:text-xs space-y-1">
+              {logs.length === 0 ? (
+                <div className="space-y-1.5">
+                  <p className="text-muted-foreground/60">
+                    <span className="text-terminal-dim">root@remixer</span>
+                    <span className="text-muted-foreground/30">:</span>
+                    <span className="text-primary/60">~</span>
+                    <span className="text-muted-foreground/30">$</span>
+                    <span className="text-muted-foreground/40 ml-1 animate-pulse-glow">_</span>
+                  </p>
+                  <p className="text-muted-foreground/25 text-[10px]">Aguardando comando...</p>
+                </div>
+              ) : (
+                logs.map((log, i) => (
+                  <div key={i} className="flex items-start gap-2.5 py-0.5">
+                    <span className="text-muted-foreground/20 shrink-0 text-[10px] w-[76px] tabular-nums select-none">
+                      {log.timestamp}
+                    </span>
+                    <LogLine message={log.message} status={log.status} />
+                  </div>
+                ))
+              )}
+              {isRunning && <p className="text-primary animate-pulse-glow mt-1 text-sm">▌</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center py-4 sm:py-6">
+          <p className="text-[10px] text-muted-foreground/20 font-mono tracking-widest">v1.0 — github remixer</p>
         </div>
       </div>
     </div>
