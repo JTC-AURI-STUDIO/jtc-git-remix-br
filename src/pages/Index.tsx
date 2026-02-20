@@ -70,7 +70,9 @@ const Index = () => {
     return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
   };
 
-  const handleRemixClick = () => {
+  const [isValidating, setIsValidating] = useState(false);
+
+  const handleRemixClick = async () => {
     const source = parseRepo(sourceRepo);
     const target = parseRepo(targetRepo);
 
@@ -87,8 +89,53 @@ const Index = () => {
       return;
     }
 
-    // Show payment modal
-    setShowPayment(true);
+    // Validate repos and tokens before payment
+    setIsValidating(true);
+    setLogs([]);
+    addLog("Verificando URL do repositório fonte...");
+
+    try {
+      const srcRes = await fetch(`https://api.github.com/repos/${source.owner}/${source.repo}`, {
+        headers: { Authorization: `token ${sourceToken}`, Accept: "application/vnd.github.v3+json" },
+      });
+
+      if (!srcRes.ok) {
+        const srcBody = await srcRes.json().catch(() => ({}));
+        if (srcRes.status === 401) throw new Error("Token da mãe inválido ou expirado");
+        if (srcRes.status === 403) throw new Error("Token da mãe sem permissão neste repositório");
+        if (srcRes.status === 404) throw new Error(`Repo fonte não encontrado: ${source.owner}/${source.repo}`);
+        throw new Error(srcBody.message || `Erro ${srcRes.status} no repo fonte`);
+      }
+      await srcRes.json();
+      addLog(`✓ Repo fonte OK: ${source.owner}/${source.repo}`, "success");
+
+      addLog("Verificando URL do repositório destino...");
+      const effectiveToken = sameAccount ? sourceToken : targetToken;
+      const dstRes = await fetch(`https://api.github.com/repos/${target.owner}/${target.repo}`, {
+        headers: { Authorization: `token ${effectiveToken}`, Accept: "application/vnd.github.v3+json" },
+      });
+
+      if (!dstRes.ok) {
+        const dstBody = await dstRes.json().catch(() => ({}));
+        if (dstRes.status === 401) throw new Error("Token da filha inválido ou expirado");
+        if (dstRes.status === 403) throw new Error("Token da filha sem permissão neste repositório");
+        if (dstRes.status === 404) throw new Error(`Repo destino não encontrado: ${target.owner}/${target.repo}`);
+        throw new Error(dstBody.message || `Erro ${dstRes.status} no repo destino`);
+      }
+      const dstData = await dstRes.json();
+      if (dstData.permissions && !dstData.permissions.push) {
+        throw new Error("Token da filha não tem permissão de escrita (push)");
+      }
+      addLog(`✓ Repo destino OK: ${target.owner}/${target.repo}`, "success");
+
+      addLog("✓ Tudo validado! Abrindo pagamento...", "success");
+      setIsValidating(false);
+      setShowPayment(true);
+    } catch (err: any) {
+      addLog(`✗ ${err.message}`, "error");
+      toast.error(err.message);
+      setIsValidating(false);
+    }
   };
 
   const onPaymentConfirmed = async () => {
@@ -403,10 +450,15 @@ const Index = () => {
               {/* Submit */}
               <Button
                 onClick={handleRemixClick}
-                disabled={isRunning || inQueue || !isValid}
+                disabled={isRunning || inQueue || isValidating || !isValid}
                 className="w-full h-12 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl glow-border transition-all duration-300 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
               >
-                {isRunning ? (
+                {isValidating ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    Verificando...
+                  </span>
+                ) : isRunning ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                     Processando...
