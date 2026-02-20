@@ -151,6 +151,11 @@ const Login = () => {
             </p>
           </form>
         </div>
+
+        <div className="text-center mt-4 space-y-1">
+          <p className="text-[10px] text-muted-foreground/20 font-mono tracking-widest">v1.0 — jtc gitremix</p>
+          <p className="text-[10px] text-muted-foreground/30 font-mono">Criado por <span className="text-primary/40 font-bold">JARDIEL DE SOUSA LOPES</span> — Criador da <span className="text-primary/40 font-bold">JTC</span></p>
+        </div>
       </div>
     </div>
   );
