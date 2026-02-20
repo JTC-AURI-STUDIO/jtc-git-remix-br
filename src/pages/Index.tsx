@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import LogLine, { LogStatus } from "@/components/LogLine";
-import { ArrowDown, Zap, AlertTriangle, Terminal, GitBranch, ExternalLink } from "lucide-react";
+import { ArrowDown, Zap, AlertTriangle, Terminal, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import PixPaymentModal from "@/components/PixPaymentModal";
 import QueueStatus from "@/components/QueueStatus";
+import TokenGuide from "@/components/TokenGuide";
 
 interface LogEntry {
   message: string;
@@ -314,15 +315,7 @@ const Index = () => {
                   </div>
                 )}
 
-                <a
-                  href="https://github.com/settings/tokens"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[11px] text-primary/70 hover:text-primary transition-colors"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Criar token com permissão <span className="font-bold">repo</span>
-                </a>
+                <TokenGuide />
               </div>
 
               {/* Submit */}
