@@ -334,7 +334,7 @@ const Index = () => {
             <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
               <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
             </div>
-            JTC <span className="text-primary glow-text">GITREMIX</span>
+            JTC <span className="text-primary glow-text">GIT REMIX BR</span>
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm mt-2 max-w-xs mx-auto leading-relaxed">
             Clona o conteúdo de um repo e substitui tudo no destino
@@ -536,7 +536,7 @@ const Index = () => {
 
         {/* Footer */}
         <div className="text-center py-4 sm:py-6 space-y-1">
-          <p className="text-[10px] text-muted-foreground/20 font-mono tracking-widest">v1.0 — jtc gitremix</p>
+          <p className="text-[10px] text-muted-foreground/20 font-mono tracking-widest">v1.0 — jtc git remix br</p>
           <p className="text-[10px] text-muted-foreground/30 font-mono">Criado por <span className="text-primary/40 font-bold">JARDIEL DE SOUSA LOPES</span> — Criador da <span className="text-primary/40 font-bold">JTC</span></p>
         </div>
       </div>

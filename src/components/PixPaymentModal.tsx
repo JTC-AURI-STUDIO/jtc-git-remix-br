@@ -37,7 +37,7 @@ const PixPaymentModal = ({ open, onClose, onPaymentConfirmed }: PixPaymentModalP
 
     try {
       const { data, error } = await supabase.functions.invoke("create-pix", {
-        body: { description: "JTC GITREMIX - 1 Crédito (R$0,30)" },
+        body: { description: "JTC GIT REMIX BR - 1 Crédito (R$0,30)" },
       });
 
       if (error) throw error;

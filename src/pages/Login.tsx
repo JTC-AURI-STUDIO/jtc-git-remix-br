@@ -70,7 +70,7 @@ const Login = () => {
               <Zap className="w-6 h-6 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground">
-              JTC <span className="text-primary glow-text">GITREMIX</span>
+              JTC <span className="text-primary glow-text">GIT REMIX BR</span>
             </h1>
           </div>
           <p className="text-muted-foreground text-xs">Entre na sua conta</p>
@@ -153,7 +153,7 @@ const Login = () => {
         </div>
 
         <div className="text-center mt-4 space-y-1">
-          <p className="text-[10px] text-muted-foreground/20 font-mono tracking-widest">v1.0 — jtc gitremix</p>
+          <p className="text-[10px] text-muted-foreground/20 font-mono tracking-widest">v1.0 — jtc git remix br</p>
           <p className="text-[10px] text-muted-foreground/30 font-mono">Criado por <span className="text-primary/40 font-bold">JARDIEL DE SOUSA LOPES</span> — Criador da <span className="text-primary/40 font-bold">JTC</span></p>
         </div>
       </div>
