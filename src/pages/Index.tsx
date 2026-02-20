@@ -1,321 +1,230 @@
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import PixPaymentModal from "@/components/PixPaymentModal";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
-import { Github, Loader2 } from "lucide-react";
-import LogLine, { LogStatus } from "@/components/LogLine";
-import { User } from "@supabase/supabase-js";
-import RepoInput from "@/components/RepoInput";
-import TokenInput from "@/components/TokenInput";
+import { useNavigate } from "react-router-dom";
 import TerminalHeader from "@/components/TerminalHeader";
+import RepoInput from "@/components/RepoInput";
+import TokenGuide from "@/components/TokenGuide";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import LogLine, { LogStatus } from "@/components/LogLine";
+import PixPaymentModal from "@/components/PixPaymentModal";
 import QueueStatus from "@/components/QueueStatus";
-import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Wand2, KeyRound, Loader2, LogOut, History, Gem } from "lucide-react";
+
+type AppState = "idle" | "awaiting_payment" | "in_queue" | "processing" | "success" | "error";
 
 interface Log {
   message: string;
   status: LogStatus;
 }
 
-const initialLogs: Log[] = [
-  { message: "Aguardando repositório e token...", status: "pending" },
-];
-
 const Index = () => {
-  const [repoBase, setRepoBase] = useState("");
-  const [repoHead, setRepoHead] = useState("");
+  const auth = useAuth();
+  const navigate = useNavigate();
+  
+  const [sourceRepo, setSourceRepo] = useState("");
+  const [targetRepo, setTargetRepo] = useState("");
   const [githubToken, setGithubToken] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [logs, setLogs] = useState<Log[]>(initialLogs);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [userCredits, setUserCredits] = useState<number | null>(null);
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [appState, setAppState] = useState<AppState>("idle");
   const [queueId, setQueueId] = useState<string | null>(null);
-  const [terminalVisible, setTerminalVisible] = useState(false);
 
-  const { user, loading } = useAuth();
-  const terminalRef = useRef<HTMLDivElement>(null);
-
+  // --- CRITICAL AUTH GUARD ---
   useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    if (!auth.loading && !auth.user) {
+      navigate("/login");
     }
-  }, [logs]);
+  }, [auth.loading, auth.user, navigate]);
 
-  useEffect(() => {
-    if (user) {
-      fetchCredits(user);
-      const storedToken = localStorage.getItem(`githubToken_${user.id}`);
-      if (storedToken) setGithubToken(storedToken);
-    }
-  }, [user]);
-
-  const fetchCredits = async (currentUser: User) => {
-    const { data, error } = await supabase
-      .from("credits")
-      .select("count")
-      .eq("user_id", currentUser.id)
-      .single();
-
-    if (!error && data) {
-      setUserCredits(data.count);
-    } else {
-      setUserCredits(0);
-    }
-  };
-
-  const handleTokenChange = (value: string) => {
-    setGithubToken(value);
-    if (user) {
-      localStorage.setItem(`githubToken_${user.id}`, value);
-    }
-  };
-
-  const addLog = (message: string, status: LogStatus, fixedIndex?: number) => {
-    setLogs((prev) => {
-      const newLogs = [...prev];
-      if (fixedIndex !== undefined && newLogs[fixedIndex]) {
-        newLogs[fixedIndex] = { message, status };
-      } else {
-        const existingIndex = newLogs.findIndex((l) => l.status === "running");
-        if (existingIndex > -1) {
-          newLogs[existingIndex] = { ...newLogs[existingIndex], status: "success" };
-          newLogs.push({ message, status });
-        } else {
-          newLogs[newLogs.length - 1] = { message, status };
-        }
-      }
-      return newLogs;
-    });
-  };
-
-  const startRemixProcess = async () => {
-    setIsProcessing(true);
-    setQueueId(null);
-    setTerminalVisible(true);
-
-    const logsWithToken = [
-      { message: "Repositório e token recebidos", status: "success" },
-      { message: "Validando token do GitHub...", status: "running" },
-    ];
-    setLogs(logsWithToken);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("github-remix", {
-        body: { repo_base: repoBase, repo_head: repoHead, token: githubToken },
-      });
-
-      if (error) throw new Error("Falha na comunicação com o servidor.");
-      if (!data.success && data.reason === "in_queue") {
-        addLog("Você entrou na fila de espera.", "success");
-        setQueueId(data.queue_id);
-        return; // Don't proceed further, wait for queue
-      }
-      if (!data.success) throw new Error(data.error || "Erro desconhecido");
-
-      // Direct execution, not queued
-      pollLogs(data.run_id);
-
-    } catch (e: any) {
-      addLog(e.message, "error");
-      setIsProcessing(false);
-    }
-  };
-
-  const handleQueueReady = () => {
-      toast.success("Sua vez na fila! Iniciando o remix...");
-      startRemixProcess(); // Re-trigger the process
-  }
-
-  const pollLogs = (runId: string) => {
-    const eventSource = new EventSource(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/github-remix?run_id=${runId}`
-    );
-
-    eventSource.onopen = () => {
-      addLog("Conectado ao stream de logs...\n", "success");
-    };
-
-    eventSource.onmessage = (event) => {
-      const logData = JSON.parse(event.data);
-
-      if (logData.log) {
-        addLog(logData.log, "running");
-      }
-
-      if (logData.done) {
-        addLog("Remix concluído com sucesso!", "success");
-        eventSource.close();
-        setIsProcessing(false);
-        if (user) fetchCredits(user);
-      }
-      if (logData.error) {
-        addLog(`Erro: ${logData.error}`, "error");
-        eventSource.close();
-        setIsProcessing(false);
-      }
-    };
-
-    eventSource.onerror = () => {
-      addLog("Conexão com o servidor perdida. Tentando reconectar...", "error");
-      // The browser will automatically try to reconnect.
-      // If it fails consistently, we might need to close it.
-      // For now, we just log the error.
-      // eventSource.close();
-      // setIsProcessing(false);
-    };
-  };
-
-  const handleRemixClick = async () => {
-    if (!repoBase || !repoHead || !githubToken) {
-      toast.error("Por favor, preencha todos os campos.");
-      return;
-    }
-
-    if (userCredits === null || userCredits < 1) {
-      setIsModalOpen(true);
-      return;
-    }
-
-    await startRemixProcess();
-  };
-
-  const onPaymentConfirmed = async () => {
-    setIsModalOpen(false);
-    toast.info("Crédito adicionado! Iniciando remix...");
-    if (user) await fetchCredits(user);
-    await startRemixProcess();
-  };
-
-  const renderUserStatus = () => {
-    if (loading) {
-      return <div className="h-5 w-24 bg-muted/30 rounded animate-pulse" />;
-    }
-    if (user) {
-      return (
-        <div className="flex items-center gap-4 text-xs">
-          <span>{user.email}</span>
-          <span className="font-mono bg-primary/10 text-primary px-2 py-1 rounded">
-            Créditos: {userCredits ?? "..."}
-          </span>
-          <button onClick={() => supabase.auth.signOut()} className="text-muted-foreground hover:text-foreground">
-            Sair
-          </button>
-        </div>
-      );
-    }
+  // While checking auth state, show a full-page loader
+  if (auth.loading) {
     return (
-      <div className="flex items-center gap-2">
-        <Button asChild variant="secondary" size="sm">
-          <Link to="/login">Entrar</Link>
-        </Button>
-        <Button asChild size="sm">
-          <Link to="/signup">Cadastrar</Link>
-        </Button>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
+  }
+  
+  // If after loading there is no user, render nothing until redirect happens.
+  if (!auth.user) {
+    return null;
+  }
+  // --- END OF CRITICAL AUTH GUARD ---
+
+  const addLog = (message: string, status: LogStatus) => {
+    setLogs(prev => [...prev, { message, status }]);
+  };
+  
+  const handleRemix = async () => {
+    if (!sourceRepo || !targetRepo || !githubToken) {
+      toast.error("Preencha todos os campos obrigatórios.");
+      return;
+    }
+    
+    setLogs([]);
+    addLog("Iniciando processo de remix...", "running");
+    
+    if (auth.credits > 0) {
+        startProcessing();
+    } else {
+        setAppState("awaiting_payment");
+    }
+  };
+  
+  const onPaymentConfirmed = () => {
+    setAppState("idle");
+    auth.fetchCredits().then(() => {
+        toast.info("Crédito adicionado! Iniciando o remix...");
+        startProcessing();
+    });
+  };
+  
+  const startProcessing = async () => {
+    setAppState("processing");
+    addLog("Verificando disponibilidade...", "running");
+    
+    const { data, error } = await supabase.functions.invoke("github-remix", {
+        body: {
+            source_repo: sourceRepo,
+            target_repo: targetRepo,
+            github_token: githubToken,
+        },
+    });
+    
+    auth.fetchCredits();
+
+    if(error) {
+        addLog(`Erro ao iniciar remix: ${error.message}`, "error");
+        toast.error("Ocorreu um erro inesperado.");
+        setAppState("error");
+        return;
+    }
+
+    if (data.status === "queued") {
+        addLog(`Processo enfileirado. ID da fila: ${data.queue_id}`, "pending");
+        setQueueId(data.queue_id);
+        setAppState("in_queue");
+    } else if (data.status === "processing" || data.status === "success") {
+        addLog("Remix iniciado! Isso pode levar alguns minutos.", "success");
+        // In a real scenario, you'd use websockets or polling for logs.
+        // Here, we just show a success message.
+        addLog(`Processo finalizado. Verifique seu repositório: ${targetRepo}`, "success");
+        setAppState("success");
+    } else {
+        addLog(data.message || "Ocorreu um erro desconhecido", "error");
+        toast.error(data.message || "Erro desconhecido.");
+        setAppState("error");
+    }
+  };
+  
+  const onCanStartFromQueue = () => {
+    setAppState("idle");
+    toast.success("Sua vez na fila! Iniciando o remix...");
+    startProcessing();
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
   };
 
+  const isProcessing = appState === "processing" || appState === "in_queue";
+
   return (
-    <main className="bg-background text-foreground min-h-screen font-sans">
-      <div className="container mx-auto px-4 py-8 md:py-16 max-w-4xl">
-        {/* Header */}
-        <header className="flex flex-col sm:flex-row justify-between items-center mb-10">
-          <div className="flex items-center gap-3 mb-4 sm:mb-0">
-            <Github className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tighter">
-              JTC GIT <span className="text-primary glow-text">REMIX</span> BR
-            </h1>
+    <div className="min-h-screen bg-background text-foreground font-mono p-4 sm:p-6 lg:p-8 flex justify-center items-start">
+      <div className="w-full max-w-3xl">
+        <header className="flex justify-between items-center mb-4">
+          <div className="text-sm text-muted-foreground">
+            <p className="truncate max-w-[200px] sm:max-w-full">Usuário: <span className="text-primary font-bold">{auth.user.email}</span></p>
+            <p>Créditos: <span className="text-primary font-bold">{auth.credits}</span></p>
           </div>
-          <div className="text-xs text-muted-foreground">
-            {renderUserStatus()}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/history')}>
+                <History className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleLogout}>
+                <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </header>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-          {/* Left Panel: Inputs */}
-          <div className="space-y-6">
-            <RepoInput
-              prefix="BASE"
-              label="Repositório base (o original)"
-              placeholder="ex: user/repo-original"
-              value={repoBase}
-              onChange={setRepoBase}
-            />
-            <RepoInput
-              prefix="HEAD"
-              label="Seu repositório (o que vai receber as mudanças)"
-              placeholder="ex: seu-user/repo-fork"
-              value={repoHead}
-              onChange={setRepoHead}
-            />
-            <TokenInput
-              value={githubToken}
-              onChange={handleTokenChange}
-            />
-
-            <Button
-              onClick={handleRemixClick}
-              size="lg"
-              className="w-full font-bold text-lg tracking-wider group relative overflow-hidden transition-all duration-300 ease-in-out disabled:opacity-50 shadow-lg glow-shadow"
-              disabled={isProcessing}
-            >
-              <span className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary opacity-80 group-hover:opacity-100 transition-opacity duration-300"></span>
-              <span className="relative z-10 flex items-center justify-center">
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Processando...
-                  </>
-                ) : (
-                  <>
-                    <span className="transition-transform duration-300 group-hover:scale-105">
-                      REMIXAR AGORA
-                    </span>
-                    <span className="ml-2 text-xs opacity-80 font-mono">
-                      (1 CRÉDITO)
-                    </span>
-                  </>
-                )}
-              </span>
-            </Button>
-
-            <p className="text-xs text-center text-muted-foreground">
-              Problemas? Abra um <a href="#" className="text-primary hover:underline">ticket no Discord</a>.
-            </p>
-          </div>
-
-          {/* Right Panel: Terminal */}
-          <div className="bg-muted/30 border border-border/50 rounded-xl p-4 md:p-6 min-h-[300px] flex flex-col font-mono text-xs shadow-inner">
+        <div className="bg-[hsl(220,13%,10%)] border border-primary/20 rounded-xl shadow-2xl shadow-primary/10 overflow-hidden">
+         <div className="p-4 sm:p-6">
             <TerminalHeader />
-            
-            {terminalVisible ? (
-              <div ref={terminalRef} className="flex-grow space-y-2.5 overflow-y-auto pr-2 scrollbar-thin">
-                {queueId ? (
-                  <QueueStatus queueId={queueId} onCanStart={handleQueueReady} />
-                ) : (
-                  logs.map((log, index) => (
-                    <LogLine key={index} message={log.message} status={log.status} />
-                  ))
-                )}
-              </div>
-            ) : (
-               <div className="flex flex-col items-center justify-center flex-grow text-center text-muted-foreground/60">
-                  <p className="text-sm">O resultado do processo aparecerá aqui.</p>
-                  <p className="mt-2 text-xs">Preencha os campos e clique em 'Remixar Agora' para iniciar.</p>
-              </div>
-            )}
-          </div>
-        </div>
 
-        <PixPaymentModal
-          open={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onPaymentConfirmed={onPaymentConfirmed}
-        />
+            <div className="space-y-4">
+                <RepoInput
+                    label="Repositório de Origem"
+                    placeholder="ex: lovable-dev/lovable-vite"
+                    prefix="De:"
+                    value={sourceRepo}
+                    onChange={setSourceRepo}
+                />
+                <RepoInput
+                    label="Seu Novo Repositório"
+                    placeholder="ex: seu-usuario/meu-novo-projeto"
+                    prefix="Para:"
+                    value={targetRepo}
+                    onChange={setTargetRepo}
+                />
+
+                <div className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground flex items-center gap-1.5 leading-tight">
+                        <KeyRound className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span className="truncate">GitHub Personal Access Token</span>
+                    </label>
+                    <Input
+                        type="password"
+                        value={githubToken}
+                        onChange={(e) => setGithubToken(e.target.value)}
+                        placeholder="ghp_..."
+                        className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20 glow-border font-mono text-xs h-10"
+                    />
+                </div>
+                
+                <TokenGuide/>
+            </div>
+            
+            <Separator className="my-6 bg-border/30" />
+
+            <div className="flex flex-col sm:flex-row gap-3">
+               <Button onClick={handleRemix} className="w-full sm:w-auto flex-grow" disabled={isProcessing}>
+                   {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4" />}
+                   {isProcessing ? 'Processando...' : `Remixar Agora ${auth.credits > 0 ? '(1 Crédito)' : ''}`}
+               </Button>
+               <Button variant="outline" className="w-full sm:w-auto" onClick={() => setAppState("awaiting_payment")}>
+                   <Gem className="mr-2 h-4 w-4 text-primary"/>
+                   Comprar Créditos
+               </Button>
+            </div>
+
+            {appState === "in_queue" && queueId && (
+                <div className="mt-6">
+                    <QueueStatus queueId={queueId} onCanStart={onCanStartFromQueue} />
+                </div>
+            )}
+            
+            {logs.length > 0 && appState !== "in_queue" && (
+                <div className="mt-6 pt-4 border-t border-border/30 space-y-2">
+                   {logs.map((log, i) => <LogLine key={i} message={log.message} status={log.status} />)}
+                </div>
+            )}
+         </div>
+        </div>
+        <footer className="text-center mt-6 text-xs text-muted-foreground">
+            <p>JTC GIT REMIX BR</p>
+        </footer>
       </div>
-    </main>
+      
+      <PixPaymentModal
+        open={appState === 'awaiting_payment'}
+        onClose={() => setAppState("idle")}
+        onPaymentConfirmed={onPaymentConfirmed}
+      />
+    </div>
   );
 };
 
