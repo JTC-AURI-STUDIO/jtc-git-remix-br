@@ -1,53 +1,40 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import PixPaymentModal from "@/components/PixPaymentModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import LogLine, { LogStatus } from "@/components/LogLine";
-import { ArrowDown, Zap, AlertTriangle, Terminal, GitBranch, LogOut, Clock, Shield } from "lucide-react";
 import { toast } from "sonner";
-import { Switch } from "@/components/ui/switch";
-import PixPaymentModal from "@/components/PixPaymentModal";
+import { Github, Loader2 } from "lucide-react";
+import LogLine, { LogStatus } from "@/components/LogLine";
+import { User } from "@supabase/supabase-js";
+import RepoInput from "@/components/RepoInput";
+import TokenInput from "@/components/TokenInput";
+import TerminalHeader from "@/components/TerminalHeader";
 import QueueStatus from "@/components/QueueStatus";
-import TokenGuide from "@/components/TokenGuide";
+import { Link } from "react-router-dom";
 
-interface LogEntry {
+interface Log {
   message: string;
   status: LogStatus;
-  timestamp: string;
 }
 
-const getTime = () => {
-  const now = new Date();
-  return now.toLocaleTimeString("pt-BR", { hour12: false }) + "." + String(now.getMilliseconds()).padStart(3, "0");
-};
+const initialLogs: Log[] = [
+  { message: "Aguardando repositório e token...", status: "pending" },
+];
 
 const Index = () => {
-  const navigate = useNavigate();
-  const { user, loading: authLoading, isAdmin, signOut } = useAuth();
-  const [sourceRepo, setSourceRepo] = useState("");
-  const [targetRepo, setTargetRepo] = useState("");
-  const [sourceToken, setSourceToken] = useState("");
-  const [targetToken, setTargetToken] = useState("");
-  const [sameAccount, setSameAccount] = useState(true);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
-  const [showPayment, setShowPayment] = useState(false);
+  const [repoBase, setRepoBase] = useState("");
+  const [repoHead, setRepoHead] = useState("");
+  const [githubToken, setGithubToken] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [logs, setLogs] = useState<Log[]>(initialLogs);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [userCredits, setUserCredits] = useState<number | null>(null);
   const [queueId, setQueueId] = useState<string | null>(null);
-  const [inQueue, setInQueue] = useState(false);
-  const [historyId, setHistoryId] = useState<string | null>(null);
-  const terminalRef = useRef<HTMLDivElement>(null);
+  const [terminalVisible, setTerminalVisible] = useState(false);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/login");
-    } else if (!authLoading && user && isAdmin) {
-      const params = new URLSearchParams(window.location.search);
-      if (!params.has("remixer")) {
-        navigate("/admin");
-      }
-    }
-  }, [user, authLoading, isAdmin]);
+  const { user, loading } = useAuth();
+  const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (terminalRef.current) {
@@ -55,523 +42,280 @@ const Index = () => {
     }
   }, [logs]);
 
-  const addLog = (message: string, status: LogStatus = "running") => {
-    setLogs((prev) => [...prev, { message, status, timestamp: getTime() }]);
+  useEffect(() => {
+    if (user) {
+      fetchCredits(user);
+      const storedToken = localStorage.getItem(`githubToken_${user.id}`);
+      if (storedToken) setGithubToken(storedToken);
+    }
+  }, [user]);
+
+  const fetchCredits = async (currentUser: User) => {
+    const { data, error } = await supabase
+      .from("credits")
+      .select("count")
+      .eq("user_id", currentUser.id)
+      .single();
+
+    if (!error && data) {
+      setUserCredits(data.count);
+    } else {
+      setUserCredits(0);
+    }
   };
 
-  const updateLastLog = (status: LogStatus) => {
+  const handleTokenChange = (value: string) => {
+    setGithubToken(value);
+    if (user) {
+      localStorage.setItem(`githubToken_${user.id}`, value);
+    }
+  };
+
+  const addLog = (message: string, status: LogStatus, fixedIndex?: number) => {
     setLogs((prev) => {
-      const updated = [...prev];
-      if (updated.length > 0) {
-        updated[updated.length - 1].status = status;
+      const newLogs = [...prev];
+      if (fixedIndex !== undefined && newLogs[fixedIndex]) {
+        newLogs[fixedIndex] = { message, status };
+      } else {
+        const existingIndex = newLogs.findIndex((l) => l.status === "running");
+        if (existingIndex > -1) {
+          newLogs[existingIndex] = { ...newLogs[existingIndex], status: "success" };
+          newLogs.push({ message, status });
+        } else {
+          newLogs[newLogs.length - 1] = { message, status };
+        }
       }
-      return updated;
+      return newLogs;
     });
   };
 
-  const parseRepo = (url: string) => {
-    const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
-    if (!match) return null;
-    return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
-  };
+  const startRemixProcess = async () => {
+    setIsProcessing(true);
+    setQueueId(null);
+    setTerminalVisible(true);
 
-  const [isValidating, setIsValidating] = useState(false);
-
-  const handleRemixClick = async () => {
-    const source = parseRepo(sourceRepo);
-    const target = parseRepo(targetRepo);
-
-    if (!source || !target) {
-      toast.error("URLs inválidas. Use: https://github.com/owner/repo");
-      return;
-    }
-    if (!sourceToken.trim()) {
-      toast.error("Insira o token da conta mãe");
-      return;
-    }
-    if (!sameAccount && !targetToken.trim()) {
-      toast.error("Insira o token da conta filha");
-      return;
-    }
-
-    // Validate repos and tokens before payment
-    setIsValidating(true);
-    setLogs([]);
-    addLog("Verificando URL do repositório fonte...");
-
-    try {
-      const srcRes = await fetch(`https://api.github.com/repos/${source.owner}/${source.repo}`, {
-        headers: { Authorization: `token ${sourceToken}`, Accept: "application/vnd.github.v3+json" },
-      });
-
-      if (!srcRes.ok) {
-        const srcBody = await srcRes.json().catch(() => ({}));
-        if (srcRes.status === 401) throw new Error("Token da mãe inválido ou expirado");
-        if (srcRes.status === 403) throw new Error("Token da mãe sem permissão neste repositório");
-        if (srcRes.status === 404) throw new Error(`Repo fonte não encontrado: ${source.owner}/${source.repo}`);
-        throw new Error(srcBody.message || `Erro ${srcRes.status} no repo fonte`);
-      }
-      await srcRes.json();
-      addLog(`✓ Repo fonte OK: ${source.owner}/${source.repo}`, "success");
-
-      addLog("Verificando URL do repositório destino...");
-      const effectiveToken = sameAccount ? sourceToken : targetToken;
-      const dstRes = await fetch(`https://api.github.com/repos/${target.owner}/${target.repo}`, {
-        headers: { Authorization: `token ${effectiveToken}`, Accept: "application/vnd.github.v3+json" },
-      });
-
-      if (!dstRes.ok) {
-        const dstBody = await dstRes.json().catch(() => ({}));
-        if (dstRes.status === 401) throw new Error("Token da filha inválido ou expirado");
-        if (dstRes.status === 403) throw new Error("Token da filha sem permissão neste repositório");
-        if (dstRes.status === 404) throw new Error(`Repo destino não encontrado: ${target.owner}/${target.repo}`);
-        throw new Error(dstBody.message || `Erro ${dstRes.status} no repo destino`);
-      }
-      const dstData = await dstRes.json();
-      if (dstData.permissions && !dstData.permissions.push) {
-        throw new Error("Token da filha não tem permissão de escrita (push)");
-      }
-      addLog(`✓ Repo destino OK: ${target.owner}/${target.repo}`, "success");
-
-      addLog("✓ Tudo validado!", "success");
-      setIsValidating(false);
-
-      // Admin skips payment entirely
-      if (isAdmin) {
-        addLog("🔓 Admin detectado — remix grátis e sem fila!", "success");
-        setLogs([]);
-        executeRemix();
-      } else {
-        addLog("Abrindo pagamento...", "running");
-        setShowPayment(true);
-      }
-    } catch (err: any) {
-      addLog(`✗ ${err.message}`, "error");
-      toast.error(err.message);
-      setIsValidating(false);
-    }
-  };
-
-  const onPaymentConfirmed = async () => {
-    const source = parseRepo(sourceRepo)!;
-    const target = parseRepo(targetRepo)!;
-
-    setShowPayment(false);
-    setLogs([]);
-    addLog("💰 Pagamento confirmado!");
-    addLog("Entrando na fila...");
-
-    try {
-      // Join queue
-      const { data: queueData, error: queueError } = await supabase.functions.invoke("remix-queue", {
-        body: {
-          action: "join",
-          source_repo: `${source.owner}/${source.repo}`,
-          target_repo: `${target.owner}/${target.repo}`,
-        },
-      });
-
-      if (queueError) throw queueError;
-      if (!queueData?.success) throw new Error(queueData?.error || "Erro ao entrar na fila");
-
-      setQueueId(queueData.queue_id);
-      setInQueue(true);
-
-      if (queueData.position <= 1) {
-        addLog("Fila livre! Iniciando remix...", "success");
-      } else {
-        addLog(`Posição na fila: #${queueData.position}`, "running");
-        addLog("Aguardando sua vez...", "pending");
-      }
-    } catch (err: any) {
-      addLog(`ERRO: ${err.message}`, "error");
-      toast.error(err.message);
-    }
-  };
-
-  const onQueueReady = () => {
-    executeRemix();
-  };
-
-  const executeRemix = async () => {
-    const source = parseRepo(sourceRepo)!;
-    const target = parseRepo(targetRepo)!;
-
-    setInQueue(false);
-    setIsRunning(true);
-    addLog("🚀 Sua vez! Executando remix...", "running");
-    addLog(`SRC → ${source.owner}/${source.repo}`);
-    addLog(`DST → ${target.owner}/${target.repo}`);
-
-    // Save to history
-    let currentHistoryId = historyId;
-    if (user) {
-      const { data: histData } = await supabase.from("remix_history").insert({
-        user_id: user.id,
-        source_repo: `${source.owner}/${source.repo}`,
-        target_repo: `${target.owner}/${target.repo}`,
-        status: "processing",
-      }).select("id").single();
-      if (histData) {
-        currentHistoryId = histData.id;
-        setHistoryId(histData.id);
-      }
-    }
+    const logsWithToken = [
+      { message: "Repositório e token recebidos", status: "success" },
+      { message: "Validando token do GitHub...", status: "running" },
+    ];
+    setLogs(logsWithToken);
 
     try {
       const { data, error } = await supabase.functions.invoke("github-remix", {
-        body: {
-          sourceOwner: source.owner,
-          sourceRepo: source.repo,
-          targetOwner: target.owner,
-          targetRepo: target.repo,
-          sourceToken,
-          targetToken: sameAccount ? sourceToken : targetToken,
-        },
+        body: { repo_base: repoBase, repo_head: repoHead, token: githubToken },
       });
 
-      if (error) throw error;
-      updateLastLog("success");
-
-      if (data?.steps) {
-        for (const step of data.steps) {
-          addLog(step.message, step.success ? "success" : "error");
-        }
+      if (error) throw new Error("Falha na comunicação com o servidor.");
+      if (!data.success && data.reason === "in_queue") {
+        addLog("Você entrou na fila de espera.", "success");
+        setQueueId(data.queue_id);
+        return; // Don't proceed further, wait for queue
       }
+      if (!data.success) throw new Error(data.error || "Erro desconhecido");
 
-      const finalStatus = data?.success ? "success" : "error";
+      // Direct execution, not queued
+      pollLogs(data.run_id);
 
-      if (data?.success) {
-        addLog("══════════════════════════════", "success");
-        addLog("✨ REMIX CONCLUÍDO!", "success");
-        addLog("══════════════════════════════", "success");
-        toast.success("Remix concluído!");
-      } else {
-        addLog(`FATAL: ${data?.error || "Erro desconhecido"}`, "error");
-        toast.error(data?.error || "Falha no remix");
-      }
-
-      // Update history
-      if (currentHistoryId) {
-        await supabase.from("remix_history").update({
-          status: finalStatus,
-          finished_at: new Date().toISOString(),
-        }).eq("id", currentHistoryId);
-      }
-
-      // Mark queue as done
-      if (queueId) {
-        await supabase.functions.invoke("remix-queue", {
-          body: { action: "done", queue_id: queueId },
-        });
-      }
-    } catch (err: any) {
-      updateLastLog("error");
-      addLog(`FATAL: ${err.message}`, "error");
-      toast.error(err.message);
-
-      // Update history as error
-      if (currentHistoryId) {
-        await supabase.from("remix_history").update({
-          status: "error",
-          finished_at: new Date().toISOString(),
-        }).eq("id", currentHistoryId);
-      }
-
-      // Mark queue as error
-      if (queueId) {
-        await supabase.functions.invoke("remix-queue", {
-          body: { action: "error", queue_id: queueId },
-        });
-      }
-    } finally {
-      setIsRunning(false);
-      setQueueId(null);
-      setHistoryId(null);
-      addLog("Processo finalizado.", "pending");
+    } catch (e: any) {
+      addLog(e.message, "error");
+      setIsProcessing(false);
     }
   };
 
-  const isValid = sourceRepo && targetRepo && sourceToken && (sameAccount || targetToken);
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
+  const handleQueueReady = () => {
+      toast.success("Sua vez na fila! Iniciando o remix...");
+      startRemixProcess(); // Re-trigger the process
   }
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* User nav bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-card/40 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-primary" />
-          <span className="text-xs font-mono text-muted-foreground truncate max-w-[150px]">
-            {user?.email}
+  const pollLogs = (runId: string) => {
+    const eventSource = new EventSource(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/github-remix?run_id=${runId}`
+    );
+
+    eventSource.onopen = () => {
+      addLog("Conectado ao stream de logs...\n", "success");
+    };
+
+    eventSource.onmessage = (event) => {
+      const logData = JSON.parse(event.data);
+
+      if (logData.log) {
+        addLog(logData.log, "running");
+      }
+
+      if (logData.done) {
+        addLog("Remix concluído com sucesso!", "success");
+        eventSource.close();
+        setIsProcessing(false);
+        if (user) fetchCredits(user);
+      }
+      if (logData.error) {
+        addLog(`Erro: ${logData.error}`, "error");
+        eventSource.close();
+        setIsProcessing(false);
+      }
+    };
+
+    eventSource.onerror = () => {
+      addLog("Conexão com o servidor perdida. Tentando reconectar...", "error");
+      // The browser will automatically try to reconnect.
+      // If it fails consistently, we might need to close it.
+      // For now, we just log the error.
+      // eventSource.close();
+      // setIsProcessing(false);
+    };
+  };
+
+  const handleRemixClick = async () => {
+    if (!repoBase || !repoHead || !githubToken) {
+      toast.error("Por favor, preencha todos os campos.");
+      return;
+    }
+
+    if (userCredits === null || userCredits < 1) {
+      setIsModalOpen(true);
+      return;
+    }
+
+    await startRemixProcess();
+  };
+
+  const onPaymentConfirmed = async () => {
+    setIsModalOpen(false);
+    toast.info("Crédito adicionado! Iniciando remix...");
+    if (user) await fetchCredits(user);
+    await startRemixProcess();
+  };
+
+  const renderUserStatus = () => {
+    if (loading) {
+      return <div className="h-5 w-24 bg-muted/30 rounded animate-pulse" />;
+    }
+    if (user) {
+      return (
+        <div className="flex items-center gap-4 text-xs">
+          <span>{user.email}</span>
+          <span className="font-mono bg-primary/10 text-primary px-2 py-1 rounded">
+            Créditos: {userCredits ?? "..."}
           </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/admin")}
-              className="text-xs text-primary hover:text-primary/80 gap-1.5 h-8 font-bold"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              Admin
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/history")}
-            className="text-xs text-muted-foreground hover:text-foreground gap-1.5 h-8"
-          >
-            <Clock className="w-3.5 h-3.5" />
-            Histórico
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={signOut}
-            className="text-xs text-muted-foreground hover:text-destructive gap-1.5 h-8"
-          >
-            <LogOut className="w-3.5 h-3.5" />
+          <button onClick={() => supabase.auth.signOut()} className="text-muted-foreground hover:text-foreground">
             Sair
-          </Button>
+          </button>
         </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-2">
+        <Button asChild variant="secondary" size="sm">
+          <Link to="/login">Entrar</Link>
+        </Button>
+        <Button asChild size="sm">
+          <Link to="/signup">Cadastrar</Link>
+        </Button>
       </div>
-      {/* Scanline overlay */}
-      <div className="fixed inset-0 scanline pointer-events-none z-50 opacity-30" />
+    );
+  };
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-start px-4 py-6 sm:py-10 pb-0">
+  return (
+    <main className="bg-background text-foreground min-h-screen font-sans">
+      <div className="container mx-auto px-4 py-8 md:py-16 max-w-4xl">
         {/* Header */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 mb-4">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
-            <span className="text-[11px] text-primary font-mono tracking-widest uppercase">Ativo</span>
+        <header className="flex flex-col sm:flex-row justify-between items-center mb-10">
+          <div className="flex items-center gap-3 mb-4 sm:mb-0">
+            <Github className="w-8 h-8 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tighter">
+              JTC GIT <span className="text-primary glow-text">REMIX</span> BR
+            </h1>
           </div>
-          <h1 className="text-2xl sm:text-4xl font-bold text-foreground glow-text flex items-center justify-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
-              <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-            </div>
-            JTC <span className="text-primary glow-text">GIT REMIX BR</span>
-          </h1>
-          <p className="text-muted-foreground text-xs sm:text-sm mt-2 max-w-xs mx-auto leading-relaxed">
-            Clona o conteúdo de um repo e substitui tudo no destino
-          </p>
-        </div>
+          <div className="text-xs text-muted-foreground">
+            {renderUserStatus()}
+          </div>
+        </header>
 
-        {/* Card */}
-        <div className="w-full max-w-md">
-          <div className="bg-card/80 backdrop-blur-sm border border-border rounded-2xl overflow-hidden glow-box">
-            {/* Card header */}
-            <div className="flex items-center gap-2 px-5 py-3 bg-muted/30 border-b border-border">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[hsl(0,72%,50%)]" />
-                <div className="w-3 h-3 rounded-full bg-[hsl(45,90%,55%)]" />
-                <div className="w-3 h-3 rounded-full bg-primary" />
-              </div>
-              <span className="text-muted-foreground text-[11px] ml-1 font-mono tracking-wider">remixer.sh</span>
-            </div>
+        {/* Main Content */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+          {/* Left Panel: Inputs */}
+          <div className="space-y-6">
+            <RepoInput
+              prefix="BASE"
+              label="Repositório base (o original)"
+              placeholder="ex: user/repo-original"
+              value={repoBase}
+              onChange={setRepoBase}
+            />
+            <RepoInput
+              prefix="HEAD"
+              label="Seu repositório (o que vai receber as mudanças)"
+              placeholder="ex: seu-user/repo-fork"
+              value={repoHead}
+              onChange={setRepoHead}
+            />
+            <TokenInput
+              value={githubToken}
+              onChange={handleTokenChange}
+            />
 
-            {/* Card body */}
-            <div className="p-5 sm:p-6 space-y-5">
-              {/* Source repo */}
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground flex items-center gap-2">
-                  <GitBranch className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-primary font-bold">[MÃE]</span>
-                  <span>Repo fonte</span>
-                </label>
-                <input
-                  value={sourceRepo}
-                  onChange={(e) => setSourceRepo(e.target.value)}
-                  placeholder="https://github.com/user/repo"
-                  className="w-full bg-background/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 font-mono text-xs transition-all duration-200"
-                />
-              </div>
-
-              {/* Arrow */}
-              <div className="flex justify-center">
-                <div className="p-2 bg-primary/5 rounded-full border border-primary/10">
-                  <ArrowDown className="w-4 h-4 text-primary animate-pulse-glow" />
-                </div>
-              </div>
-
-              {/* Target repo */}
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground flex items-center gap-2">
-                  <GitBranch className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-primary font-bold">[FILHA]</span>
-                  <span>Repo destino</span>
-                </label>
-                <input
-                  value={targetRepo}
-                  onChange={(e) => setTargetRepo(e.target.value)}
-                  placeholder="https://github.com/user/repo"
-                  className="w-full bg-background/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 font-mono text-xs transition-all duration-200"
-                />
-              </div>
-
-              {/* Warning */}
-              <div className="flex items-center gap-3 bg-destructive/5 border border-destructive/20 rounded-xl p-3.5">
-                <div className="p-1.5 bg-destructive/10 rounded-lg">
-                  <AlertTriangle className="w-4 h-4 text-destructive" />
-                </div>
-                <p className="text-xs text-destructive/90 leading-relaxed">
-                  O conteúdo do repo filha será <strong>completamente substituído</strong>.
-                </p>
-              </div>
-
-              {/* Same account toggle */}
-              <div className="flex items-center justify-between bg-background/40 rounded-xl p-4 border border-border/50">
-                <div>
-                  <p className="text-xs font-medium text-foreground">Mesma conta</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Usar apenas 1 token</p>
-                </div>
-                <Switch checked={sameAccount} onCheckedChange={setSameAccount} />
-              </div>
-
-              {/* Tokens */}
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <span className="text-primary font-bold">[TOKEN {sameAccount ? "ÚNICO" : "MÃE"}]</span>
-                    <span className="text-muted-foreground/70">{sameAccount ? "Acesso total" : "Conta fonte"}</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={sourceToken}
-                    onChange={(e) => setSourceToken(e.target.value)}
-                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                    className="w-full bg-background/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 font-mono text-xs transition-all duration-200"
-                  />
-                </div>
-
-                {!sameAccount && (
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <span className="text-primary font-bold">[TOKEN FILHA]</span>
-                      <span className="text-muted-foreground/70">Conta destino</span>
-                    </label>
-                    <input
-                      type="password"
-                      value={targetToken}
-                      onChange={(e) => setTargetToken(e.target.value)}
-                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                      className="w-full bg-background/60 border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 font-mono text-xs transition-all duration-200"
-                    />
-                  </div>
-                )}
-
-                <TokenGuide />
-              </div>
-
-              {/* Submit */}
-              <Button
-                onClick={handleRemixClick}
-                disabled={isRunning || inQueue || isValidating || !isValid}
-                className="w-full h-12 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl glow-border transition-all duration-300 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
-              >
-                {isValidating ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    Verificando...
-                  </span>
-                ) : isRunning ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+            <Button
+              onClick={handleRemixClick}
+              size="lg"
+              className="w-full font-bold text-lg tracking-wider group relative overflow-hidden transition-all duration-300 ease-in-out disabled:opacity-50 shadow-lg glow-shadow"
+              disabled={isProcessing}
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary opacity-80 group-hover:opacity-100 transition-opacity duration-300"></span>
+              <span className="relative z-10 flex items-center justify-center">
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Processando...
-                  </span>
-                ) : inQueue ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    Na fila...
-                  </span>
+                  </>
                 ) : (
-                  isAdmin ? "$ remix --execute (admin ∞)" : "$ remix --execute (1 crédito)"
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Queue Status */}
-      {inQueue && (
-        <div className="max-w-md mx-auto px-4 mt-4">
-          <div className="bg-card/80 backdrop-blur-sm border border-primary/20 rounded-2xl p-4 glow-box">
-            <QueueStatus queueId={queueId} onCanStart={onQueueReady} />
-          </div>
-        </div>
-      )}
-
-      {/* TERMINAL */}
-      <div className="mt-6 sm:mt-8">
-        <div className="max-w-md mx-auto px-4 sm:px-0">
-          <div className="bg-[hsl(220,20%,3%)] border border-border/50 rounded-2xl overflow-hidden shadow-[0_0_40px_hsl(var(--primary)/0.05)]">
-            {/* Terminal header */}
-            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-muted/10 border-b border-border/30">
-              <Terminal className="w-4 h-4 text-primary/70" />
-              <span className="text-[11px] text-muted-foreground font-mono tracking-widest">terminal</span>
-              <div className="ml-auto flex items-center gap-2">
-                {isRunning && (
-                  <span className="text-[10px] text-primary/60 font-mono animate-pulse-glow">executando...</span>
-                )}
-                <div className={`w-2 h-2 rounded-full transition-all duration-500 ${
-                  isRunning ? "bg-primary animate-pulse-glow shadow-[0_0_8px_hsl(var(--primary)/0.6)]" 
-                  : logs.length > 0 ? "bg-primary/30" 
-                  : "bg-muted-foreground/15"
-                }`} />
-              </div>
-            </div>
-
-            {/* Terminal body */}
-            <div ref={terminalRef} className="h-[180px] sm:h-[220px] overflow-y-auto p-4 font-mono text-[11px] sm:text-xs space-y-1">
-              {logs.length === 0 ? (
-                <div className="space-y-1.5">
-                  <p className="text-muted-foreground/60">
-                    <span className="text-terminal-dim">root@remixer</span>
-                    <span className="text-muted-foreground/30">:</span>
-                    <span className="text-primary/60">~</span>
-                    <span className="text-muted-foreground/30">$</span>
-                    <span className="text-muted-foreground/40 ml-1 animate-pulse-glow">_</span>
-                  </p>
-                  <p className="text-muted-foreground/25 text-[10px]">Aguardando comando...</p>
-                </div>
-              ) : (
-                logs.map((log, i) => (
-                  <div key={i} className="flex items-start gap-2.5 py-0.5">
-                    <span className="text-muted-foreground/20 shrink-0 text-[10px] w-[76px] tabular-nums select-none">
-                      {log.timestamp}
+                  <>
+                    <span className="transition-transform duration-300 group-hover:scale-105">
+                      REMIXAR AGORA
                     </span>
-                    <LogLine message={log.message} status={log.status} />
-                  </div>
-                ))
-              )}
-              {isRunning && <p className="text-primary animate-pulse-glow mt-1 text-sm">▌</p>}
-            </div>
+                    <span className="ml-2 text-xs opacity-80 font-mono">
+                      (1 CRÉDITO)
+                    </span>
+                  </>
+                )}
+              </span>
+            </Button>
+
+            <p className="text-xs text-center text-muted-foreground">
+              Problemas? Abra um <a href="#" className="text-primary hover:underline">ticket no Discord</a>.
+            </p>
+          </div>
+
+          {/* Right Panel: Terminal */}
+          <div className="bg-muted/30 border border-border/50 rounded-xl p-4 md:p-6 min-h-[300px] flex flex-col font-mono text-xs shadow-inner">
+            <TerminalHeader />
+            
+            {terminalVisible ? (
+              <div ref={terminalRef} className="flex-grow space-y-2.5 overflow-y-auto pr-2 scrollbar-thin">
+                {queueId ? (
+                  <QueueStatus queueId={queueId} onCanStart={handleQueueReady} />
+                ) : (
+                  logs.map((log, index) => (
+                    <LogLine key={index} message={log.message} status={log.status} />
+                  ))
+                )}
+              </div>
+            ) : (
+               <div className="flex flex-col items-center justify-center flex-grow text-center text-muted-foreground/60">
+                  <p className="text-sm">O resultado do processo aparecerá aqui.</p>
+                  <p className="mt-2 text-xs">Preencha os campos e clique em 'Remixar Agora' para iniciar.</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="text-center py-4 sm:py-6 space-y-1">
-          <p className="text-[10px] text-muted-foreground/20 font-mono tracking-widest">v1.0 — jtc git remix br</p>
-          <p className="text-[10px] text-muted-foreground/30 font-mono">Criado por <span className="text-primary/40 font-bold">JARDIEL DE SOUSA LOPES</span> — Criador da <span className="text-primary/40 font-bold">JTC</span></p>
-        </div>
+        <PixPaymentModal
+          open={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onPaymentConfirmed={onPaymentConfirmed}
+        />
       </div>
-
-      <PixPaymentModal
-        open={showPayment}
-        onClose={() => setShowPayment(false)}
-        onPaymentConfirmed={onPaymentConfirmed}
-      />
-    </div>
+    </main>
   );
 };
 
