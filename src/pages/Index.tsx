@@ -130,13 +130,13 @@ const Index = () => {
         <div className="text-center mb-6 sm:mb-8">
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 mb-4">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
-            <span className="text-[11px] text-primary font-mono tracking-widest uppercase">Online</span>
+            <span className="text-[11px] text-primary font-mono tracking-widest uppercase">Ativo</span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-bold text-foreground glow-text flex items-center justify-center gap-3">
             <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
               <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
             </div>
-            GitHub Remixer
+            JTC <span className="text-primary glow-text">GITREMIX</span>
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm mt-2 max-w-xs mx-auto leading-relaxed">
             Clona o conteúdo de um repo e substitui tudo no destino
@@ -327,7 +327,7 @@ const Index = () => {
 
         {/* Footer */}
         <div className="text-center py-4 sm:py-6">
-          <p className="text-[10px] text-muted-foreground/20 font-mono tracking-widest">v1.0 — github remixer</p>
+          <p className="text-[10px] text-muted-foreground/20 font-mono tracking-widest">v1.0 — jtc gitremix</p>
         </div>
       </div>
     </div>
