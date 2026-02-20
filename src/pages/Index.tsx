@@ -41,8 +41,13 @@ const Index = () => {
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/login");
+    } else if (!authLoading && user && isAdmin) {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has("remixer")) {
+        navigate("/admin");
+      }
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, isAdmin]);
 
   useEffect(() => {
     if (terminalRef.current) {
