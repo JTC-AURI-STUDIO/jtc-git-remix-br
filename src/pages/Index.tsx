@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import LogLine, { LogStatus } from "@/components/LogLine";
-import { ArrowDown, Zap, AlertTriangle, Terminal, GitBranch } from "lucide-react";
+import { ArrowDown, Zap, AlertTriangle, Terminal, GitBranch, LogOut, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import PixPaymentModal from "@/components/PixPaymentModal";
@@ -21,6 +23,8 @@ const getTime = () => {
 };
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [sourceRepo, setSourceRepo] = useState("");
   const [targetRepo, setTargetRepo] = useState("");
   const [sourceToken, setSourceToken] = useState("");
@@ -31,7 +35,14 @@ const Index = () => {
   const [showPayment, setShowPayment] = useState(false);
   const [queueId, setQueueId] = useState<string | null>(null);
   const [inQueue, setInQueue] = useState(false);
+  const [historyId, setHistoryId] = useState<string | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/login");
+    }
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (terminalRef.current) {
@@ -131,6 +142,21 @@ const Index = () => {
     addLog(`SRC → ${source.owner}/${source.repo}`);
     addLog(`DST → ${target.owner}/${target.repo}`);
 
+    // Save to history
+    let currentHistoryId = historyId;
+    if (user) {
+      const { data: histData } = await supabase.from("remix_history").insert({
+        user_id: user.id,
+        source_repo: `${source.owner}/${source.repo}`,
+        target_repo: `${target.owner}/${target.repo}`,
+        status: "processing",
+      }).select("id").single();
+      if (histData) {
+        currentHistoryId = histData.id;
+        setHistoryId(histData.id);
+      }
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke("github-remix", {
         body: {
@@ -152,6 +178,8 @@ const Index = () => {
         }
       }
 
+      const finalStatus = data?.success ? "success" : "error";
+
       if (data?.success) {
         addLog("══════════════════════════════", "success");
         addLog("✨ REMIX CONCLUÍDO!", "success");
@@ -160,6 +188,14 @@ const Index = () => {
       } else {
         addLog(`FATAL: ${data?.error || "Erro desconhecido"}`, "error");
         toast.error(data?.error || "Falha no remix");
+      }
+
+      // Update history
+      if (currentHistoryId) {
+        await supabase.from("remix_history").update({
+          status: finalStatus,
+          finished_at: new Date().toISOString(),
+        }).eq("id", currentHistoryId);
       }
 
       // Mark queue as done
@@ -173,6 +209,14 @@ const Index = () => {
       addLog(`FATAL: ${err.message}`, "error");
       toast.error(err.message);
 
+      // Update history as error
+      if (currentHistoryId) {
+        await supabase.from("remix_history").update({
+          status: "error",
+          finished_at: new Date().toISOString(),
+        }).eq("id", currentHistoryId);
+      }
+
       // Mark queue as error
       if (queueId) {
         await supabase.functions.invoke("remix-queue", {
@@ -182,14 +226,52 @@ const Index = () => {
     } finally {
       setIsRunning(false);
       setQueueId(null);
+      setHistoryId(null);
       addLog("Processo finalizado.", "pending");
     }
   };
 
   const isValid = sourceRepo && targetRepo && sourceToken && (sameAccount || targetToken);
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* User nav bar */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-card/40 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-primary" />
+          <span className="text-xs font-mono text-muted-foreground truncate max-w-[150px]">
+            {user?.email}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/history")}
+            className="text-xs text-muted-foreground hover:text-foreground gap-1.5 h-8"
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Histórico
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={signOut}
+            className="text-xs text-muted-foreground hover:text-destructive gap-1.5 h-8"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sair
+          </Button>
+        </div>
+      </div>
       {/* Scanline overlay */}
       <div className="fixed inset-0 scanline pointer-events-none z-50 opacity-30" />
 

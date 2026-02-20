@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          cpf: string
+          created_at: string
+          email: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          cpf: string
+          created_at?: string
+          email: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          cpf?: string
+          created_at?: string
+          email?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      remix_history: {
+        Row: {
+          amount: number | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          payment_id: string | null
+          source_repo: string
+          status: string
+          target_repo: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          payment_id?: string | null
+          source_repo: string
+          status?: string
+          target_repo: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          payment_id?: string | null
+          source_repo?: string
+          status?: string
+          target_repo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       remix_queue: {
         Row: {
           created_at: string
