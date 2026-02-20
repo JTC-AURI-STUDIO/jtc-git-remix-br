@@ -6,13 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-interface GitHubFile {
-  path: string;
-  type: string;
-  sha: string;
-  url: string;
-}
-
 async function githubApi(url: string, token: string, options: RequestInit = {}) {
   const res = await fetch(url, {
     ...options,
@@ -65,9 +58,9 @@ serve(async (req) => {
   }
 
   try {
-    const { sourceOwner, sourceRepo, targetOwner, targetRepo, token } = await req.json();
+    const { sourceOwner, sourceRepo, targetOwner, targetRepo, sourceToken, targetToken } = await req.json();
 
-    if (!sourceOwner || !sourceRepo || !targetOwner || !targetRepo || !token) {
+    if (!sourceOwner || !sourceRepo || !targetOwner || !targetRepo || !sourceToken || !targetToken) {
       return new Response(
         JSON.stringify({ success: false, error: "Parâmetros faltando" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
@@ -76,27 +69,28 @@ serve(async (req) => {
 
     const steps: { message: string; success: boolean }[] = [];
 
-    // 1. Get source tree
-    steps.push({ message: "Lendo árvore do repositório fonte...", success: true });
-    const sourceTree = await getTree(sourceOwner, sourceRepo, token);
+    // 1. Read source tree using SOURCE token
+    steps.push({ message: "Lendo árvore do repositório mãe...", success: true });
+    const sourceTree = await getTree(sourceOwner, sourceRepo, sourceToken);
     const blobs = sourceTree.filter((item: any) => item.type === "blob");
-    steps.push({ message: `${blobs.length} arquivos encontrados no fonte`, success: true });
+    steps.push({ message: `${blobs.length} arquivos encontrados na mãe`, success: true });
 
-    // 2. Get target default branch
-    const targetBranch = await getDefaultBranch(targetOwner, targetRepo, token);
-    const targetHeadSha = await getRef(targetOwner, targetRepo, targetBranch, token);
-    steps.push({ message: `Branch destino: ${targetBranch} (${targetHeadSha.slice(0, 7)})`, success: true });
+    // 2. Get target default branch using TARGET token
+    const targetBranch = await getDefaultBranch(targetOwner, targetRepo, targetToken);
+    const targetHeadSha = await getRef(targetOwner, targetRepo, targetBranch, targetToken);
+    steps.push({ message: `Branch filha: ${targetBranch} (${targetHeadSha.slice(0, 7)})`, success: true });
 
-    // 3. Get all blobs from source
-    steps.push({ message: "Baixando conteúdo dos arquivos...", success: true });
+    // 3. Download blobs from source, create in target
+    steps.push({ message: "Transferindo arquivos da mãe para filha...", success: true });
     const newTreeItems: any[] = [];
 
     for (const blob of blobs) {
-      const content = await getBlob(sourceOwner, sourceRepo, blob.sha, token);
-      // Create blob in target
+      // Read from source with source token
+      const content = await getBlob(sourceOwner, sourceRepo, blob.sha, sourceToken);
+      // Write to target with target token
       const newBlob = await githubApi(
         `https://api.github.com/repos/${targetOwner}/${targetRepo}/git/blobs`,
-        token,
+        targetToken,
         {
           method: "POST",
           body: JSON.stringify({ content, encoding: "base64" }),
@@ -110,24 +104,24 @@ serve(async (req) => {
       });
     }
 
-    steps.push({ message: `${newTreeItems.length} blobs criados no destino`, success: true });
+    steps.push({ message: `${newTreeItems.length} arquivos transferidos`, success: true });
 
-    // 4. Create new tree in target (without base_tree to replace everything)
-    steps.push({ message: "Criando nova árvore no destino...", success: true });
+    // 4. Create NEW tree WITHOUT base_tree — this replaces ALL content
+    steps.push({ message: "Substituindo todo conteúdo da filha...", success: true });
     const newTree = await githubApi(
       `https://api.github.com/repos/${targetOwner}/${targetRepo}/git/trees`,
-      token,
+      targetToken,
       {
         method: "POST",
         body: JSON.stringify({ tree: newTreeItems }),
       }
     );
 
-    // 5. Create commit
-    steps.push({ message: "Criando commit...", success: true });
+    // 5. Create commit on target
+    steps.push({ message: "Criando commit na filha...", success: true });
     const newCommit = await githubApi(
       `https://api.github.com/repos/${targetOwner}/${targetRepo}/git/commits`,
-      token,
+      targetToken,
       {
         method: "POST",
         body: JSON.stringify({
@@ -138,18 +132,18 @@ serve(async (req) => {
       }
     );
 
-    // 6. Update ref
-    steps.push({ message: "Atualizando referência...", success: true });
+    // 6. Force update ref on target
+    steps.push({ message: "Atualizando referência da filha...", success: true });
     await githubApi(
       `https://api.github.com/repos/${targetOwner}/${targetRepo}/git/refs/heads/${targetBranch}`,
-      token,
+      targetToken,
       {
         method: "PATCH",
         body: JSON.stringify({ sha: newCommit.sha, force: true }),
       }
     );
 
-    steps.push({ message: "Remix completo!", success: true });
+    steps.push({ message: "Remix completo! Conteúdo da mãe agora está na filha.", success: true });
 
     return new Response(JSON.stringify({ success: true, steps }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
