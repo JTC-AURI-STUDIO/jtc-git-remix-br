@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Zap, ArrowLeft, Users, GitBranch, DollarSign, CheckCircle, XCircle,
   Clock, RefreshCw, Shield, TrendingUp, Activity, Search, Filter,
-  Calendar, BarChart3, Eye, AlertTriangle, Loader2, ChevronDown, ChevronUp
+  Calendar, BarChart3, Eye, AlertTriangle, Loader2, ChevronDown, ChevronUp, Download
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
 
@@ -225,6 +225,59 @@ const AdminDashboard = () => {
 
   const formatDate = (d: string) => new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 
+  const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
+    const bom = "\uFEFF";
+    const csv = bom + [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportRemixesCSV = () => {
+    const headers = ["Status", "Usuário", "Fonte", "Destino", "Valor", "Data", "Finalizado"];
+    const rows = filteredRemixes.map((r) => [
+      r.status,
+      getEmailForUser(r.user_id),
+      r.source_repo,
+      r.target_repo,
+      r.amount ? `R$ ${Number(r.amount).toFixed(2)}` : "—",
+      formatDate(r.created_at),
+      r.finished_at ? formatDate(r.finished_at) : "—",
+    ]);
+    downloadCSV("remixes", headers, rows);
+  };
+
+  const exportUsersCSV = () => {
+    const headers = ["Email", "CPF", "Remixes", "Sucesso", "Total Gasto", "Último Acesso"];
+    const rows = filteredUsers.map((u) => [
+      u.email,
+      u.cpf,
+      String(u.remixCount),
+      String(u.successCount),
+      `R$ ${u.totalSpent.toFixed(2)}`,
+      formatDate(u.lastActive),
+    ]);
+    downloadCSV("usuarios", headers, rows);
+  };
+
+  const exportRevenueCSV = () => {
+    const headers = ["Status", "Usuário", "Valor", "Fonte", "Destino", "Data"];
+    const paidRemixes = remixes.filter((r) => r.amount && r.amount > 0);
+    const rows = paidRemixes.map((r) => [
+      r.status,
+      getEmailForUser(r.user_id),
+      `R$ ${Number(r.amount).toFixed(2)}`,
+      r.source_repo,
+      r.target_repo,
+      formatDate(r.created_at),
+    ]);
+    downloadCSV("receita", headers, rows);
+  };
+
   if (authLoading || !isAdmin) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -437,7 +490,7 @@ const AdminDashboard = () => {
             {activeTab === "remixes" && (
               <div className="space-y-4">
                 {/* Filters */}
-                <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
                   <div className="relative flex-1 min-w-[200px]">
                     <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -468,6 +521,10 @@ const AdminDashboard = () => {
                     <option value="week">Últimos 7 dias</option>
                     <option value="month">Últimos 30 dias</option>
                   </select>
+                  <Button variant="outline" size="sm" onClick={exportRemixesCSV} className="h-9 text-xs gap-1.5 font-mono">
+                    <Download className="w-3.5 h-3.5" />
+                    CSV
+                  </Button>
                 </div>
 
                 <p className="text-[10px] text-muted-foreground font-mono">{filteredRemixes.length} resultado(s)</p>
@@ -514,14 +571,20 @@ const AdminDashboard = () => {
             {/* ═══ USERS TAB ═══ */}
             {activeTab === "users" && (
               <div className="space-y-4">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar por email ou CPF..."
-                    className="pl-9 h-9 text-xs font-mono bg-card/60 border-border max-w-md"
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Buscar por email ou CPF..."
+                      className="pl-9 h-9 text-xs font-mono bg-card/60 border-border"
+                    />
+                  </div>
+                  <Button variant="outline" size="sm" onClick={exportUsersCSV} className="h-9 text-xs gap-1.5 font-mono">
+                    <Download className="w-3.5 h-3.5" />
+                    CSV
+                  </Button>
                 </div>
 
                 <div className="space-y-2">
@@ -658,7 +721,12 @@ const AdminDashboard = () => {
                   <StatCard icon={<CheckCircle className="w-5 h-5" />} value={stats.successCount} label="PAGAMENTOS OK" />
                 </div>
 
-                {/* Revenue area chart */}
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" onClick={exportRevenueCSV} className="h-9 text-xs gap-1.5 font-mono">
+                    <Download className="w-3.5 h-3.5" />
+                    Exportar CSV
+                  </Button>
+                </div>
                 <div className="bg-card/80 border border-border rounded-xl p-4">
                   <h3 className="text-xs text-muted-foreground font-mono mb-4">RECEITA DIÁRIA — ÚLTIMOS 7 DIAS</h3>
                   <ResponsiveContainer width="100%" height={220}>
