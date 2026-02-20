@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, Check, QrCode, Loader2, CircleCheck, CircleX } from "lucide-react";
+import { Copy, Check, Loader2, CircleCheck, CircleX, Gem } from "lucide-react";
 import { toast } from "sonner";
 
 interface PixPaymentModalProps {
@@ -49,7 +48,6 @@ const PixPaymentModal = ({ open, onClose, onPaymentConfirmed }: PixPaymentModalP
       setPaymentId(data.payment_id);
       setState("awaiting");
 
-      // Start polling for payment status
       startPolling(data.payment_id);
     } catch (err: any) {
       setState("error");
@@ -103,97 +101,127 @@ const PixPaymentModal = ({ open, onClose, onPaymentConfirmed }: PixPaymentModalP
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="bg-card border-border max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-foreground flex items-center gap-2 text-lg">
-            <QrCode className="w-5 h-5 text-primary" />
-            Pagamento PIX
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground text-xs">
-            1 crédito = R$ 0,30 — Escaneie o QR Code ou copie o código
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="bg-[hsl(220,25%,6%)] border-primary/20 max-w-sm p-0 overflow-hidden shadow-[0_0_80px_hsl(var(--primary)/0.15)]">
+        {/* Background grid effect */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `linear-gradient(hsl(var(--primary)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)`,
+          backgroundSize: '40px 40px',
+        }} />
 
-        <div className="space-y-4 pt-2">
+        <div className="relative z-10 p-6 sm:p-8">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <div className="flex items-center justify-center gap-2.5 mb-3">
+              <Gem className="w-7 h-7 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.6)]" />
+              <h2 className="text-2xl font-bold text-foreground tracking-tight">
+                Pagamento <span className="text-primary glow-text">PIX</span>
+              </h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              1 crédito = <span className="text-primary font-bold">R$ 0,30</span> — Escaneie o QR Code
+              <br />ou copie o código
+            </p>
+          </div>
+
+          {/* Content */}
           {state === "loading" && (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground">Gerando QR Code...</p>
+            <div className="flex flex-col items-center gap-4 py-12">
+              <Loader2 className="w-10 h-10 text-primary animate-spin drop-shadow-[0_0_12px_hsl(var(--primary)/0.5)]" />
+              <p className="text-sm text-muted-foreground font-mono">Gerando QR Code...</p>
             </div>
           )}
 
           {state === "error" && (
-            <div className="flex flex-col items-center gap-3 py-6">
-              <CircleX className="w-10 h-10 text-destructive" />
+            <div className="flex flex-col items-center gap-4 py-10">
+              <CircleX className="w-12 h-12 text-destructive" />
               <p className="text-sm text-destructive text-center">{error}</p>
-              <Button onClick={createPayment} size="sm" variant="outline">
+              <button
+                onClick={createPayment}
+                className="text-xs text-primary hover:text-primary/80 font-mono underline underline-offset-2 transition-colors"
+              >
                 Tentar novamente
-              </Button>
+              </button>
             </div>
           )}
 
           {(state === "awaiting" || state === "checking") && (
-            <>
-              {/* QR Code */}
+            <div className="space-y-5">
+              {/* QR Code with futuristic frame */}
               <div className="flex justify-center">
-                {qrCodeBase64 ? (
-                  <div className="bg-white p-3 rounded-xl">
-                    <img
-                      src={`data:image/png;base64,${qrCodeBase64}`}
-                      alt="QR Code PIX"
-                      className="w-48 h-48"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-48 h-48 bg-muted/20 rounded-xl flex items-center justify-center">
-                    <QrCode className="w-12 h-12 text-muted-foreground/30" />
-                  </div>
-                )}
+                <div className="relative">
+                  {/* Corner accents */}
+                  <div className="absolute -top-1 -left-1 w-5 h-5 border-t-2 border-l-2 border-primary rounded-tl-md" />
+                  <div className="absolute -top-1 -right-1 w-5 h-5 border-t-2 border-r-2 border-primary rounded-tr-md" />
+                  <div className="absolute -bottom-1 -left-1 w-5 h-5 border-b-2 border-l-2 border-primary rounded-bl-md" />
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 border-b-2 border-r-2 border-primary rounded-br-md" />
+
+                  {/* Glow behind QR */}
+                  <div className="absolute inset-0 bg-primary/5 rounded-xl blur-xl" />
+
+                  {qrCodeBase64 ? (
+                    <div className="relative bg-white p-4 rounded-xl shadow-[0_0_30px_hsl(var(--primary)/0.1)]">
+                      <img
+                        src={`data:image/png;base64,${qrCodeBase64}`}
+                        alt="QR Code PIX"
+                        className="w-52 h-52"
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative w-52 h-52 bg-muted/10 rounded-xl flex items-center justify-center border border-border/30">
+                      <Loader2 className="w-8 h-8 text-primary/30 animate-spin" />
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Copy code button */}
+              {/* PIX code display */}
               {qrCode && (
-                <div className="space-y-2">
-                  <div className="bg-background/60 border border-border rounded-xl p-3 font-mono text-[10px] text-muted-foreground break-all max-h-20 overflow-y-auto">
+                <div className="space-y-3">
+                  <div className="bg-[hsl(220,20%,8%)] border border-border/30 rounded-xl p-3.5 font-mono text-[10px] text-muted-foreground/80 break-all max-h-[72px] overflow-y-auto leading-relaxed">
                     {qrCode}
                   </div>
-                  <Button
+
+                  {/* Copy button */}
+                  <button
                     onClick={handleCopy}
-                    variant="outline"
-                    className="w-full h-10 text-xs gap-2 rounded-xl"
+                    className={`w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl border text-sm font-bold font-mono transition-all duration-300 ${
+                      copied
+                        ? "bg-primary/10 border-primary/40 text-primary shadow-[0_0_20px_hsl(var(--primary)/0.15)]"
+                        : "bg-[hsl(220,20%,10%)] border-border/50 text-foreground hover:border-primary/30 hover:bg-primary/5 hover:shadow-[0_0_20px_hsl(var(--primary)/0.1)]"
+                    }`}
                   >
                     {copied ? (
                       <>
-                        <Check className="w-4 h-4 text-primary" />
+                        <Check className="w-4 h-4" />
                         Copiado!
                       </>
                     ) : (
                       <>
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-4 h-4 text-primary/70" />
                         Copiar código PIX
                       </>
                     )}
-                  </Button>
+                  </button>
                 </div>
               )}
 
-              {/* Status indicator */}
-              <div className="flex items-center justify-center gap-2 py-2">
-                <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
-                <p className="text-[11px] text-muted-foreground font-mono">
+              {/* Waiting indicator */}
+              <div className="flex items-center justify-center gap-2.5 pt-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse-glow shadow-[0_0_10px_hsl(var(--primary)/0.6)]" />
+                <p className="text-sm text-muted-foreground font-medium">
                   Aguardando pagamento...
                 </p>
               </div>
-            </>
+            </div>
           )}
 
           {state === "approved" && (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <div className="p-3 bg-primary/10 rounded-full">
-                <CircleCheck className="w-10 h-10 text-primary" />
+            <div className="flex flex-col items-center gap-4 py-10">
+              <div className="p-4 bg-primary/10 rounded-full shadow-[0_0_40px_hsl(var(--primary)/0.3)]">
+                <CircleCheck className="w-12 h-12 text-primary drop-shadow-[0_0_12px_hsl(var(--primary)/0.6)]" />
               </div>
-              <p className="text-sm text-primary font-bold">Pagamento confirmado!</p>
-              <p className="text-xs text-muted-foreground">Executando remix...</p>
+              <p className="text-lg text-primary font-bold glow-text">Pagamento confirmado!</p>
+              <p className="text-sm text-muted-foreground">Executando remix...</p>
             </div>
           )}
         </div>
