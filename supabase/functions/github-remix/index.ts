@@ -27,7 +27,13 @@ async function githubApi(url: string, token: string, options: RequestInit = {}) 
       throw new Error(`Token inválido ou expirado. Verifique suas credenciais.`);
     }
     if (res.status === 403) {
-      throw new Error(`Sem permissão. O token precisa ter permissão "Contents: Read and Write" no repositório. Vá em Settings > Developer Settings > Fine-grained tokens e adicione a permissão.`);
+      const isFinegrained = url.includes("/blobs") || url.includes("/trees") || url.includes("/commits") || url.includes("/refs");
+      throw new Error(
+        `Sem permissão no repositório. SOLUÇÃO: ` +
+        `1) Use um token CLÁSSICO (ghp_...) com scope "repo" — é mais fácil. ` +
+        `Crie em: github.com/settings/tokens → "Generate new token (classic)" → marque "repo". ` +
+        `2) Se usar fine-grained (github_pat_...), selecione o repo específico e ative "Contents: Read and Write".`
+      );
     }
     if (res.status === 404) {
       throw new Error(`Repositório não encontrado. Verifique se a URL está correta e se o token tem acesso.`);
