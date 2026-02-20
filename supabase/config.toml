@@ -1,1 +1,10 @@
 project_id = "ymckdnwlrbnbcsffmivw"
+
+[functions.github-remix]
+verify_jwt = false
+
+[functions.create-pix]
+verify_jwt = false
+
+[functions.check-payment]
+verify_jwt = false

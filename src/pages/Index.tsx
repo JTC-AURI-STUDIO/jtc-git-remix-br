@@ -5,6 +5,7 @@ import LogLine, { LogStatus } from "@/components/LogLine";
 import { ArrowDown, Zap, AlertTriangle, Terminal, GitBranch, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import PixPaymentModal from "@/components/PixPaymentModal";
 
 interface LogEntry {
   message: string;
@@ -25,6 +26,7 @@ const Index = () => {
   const [sameAccount, setSameAccount] = useState(true);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,7 +55,7 @@ const Index = () => {
     return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
   };
 
-  const handleRemix = async () => {
+  const handleRemixClick = () => {
     const source = parseRepo(sourceRepo);
     const target = parseRepo(targetRepo);
 
@@ -70,9 +72,18 @@ const Index = () => {
       return;
     }
 
+    // Show payment modal
+    setShowPayment(true);
+  };
+
+  const executeRemix = async () => {
+    const source = parseRepo(sourceRepo)!;
+    const target = parseRepo(targetRepo)!;
+
+    setShowPayment(false);
     setIsRunning(true);
     setLogs([]);
-    addLog("Conectando à GitHub API...");
+    addLog("💰 Pagamento confirmado! Iniciando remix...");
     addLog(`SRC → ${source.owner}/${source.repo}`);
     addLog(`DST → ${target.owner}/${target.repo}`);
     addLog("Enviando request...");
@@ -259,7 +270,7 @@ const Index = () => {
 
               {/* Submit */}
               <Button
-                onClick={handleRemix}
+                onClick={handleRemixClick}
                 disabled={isRunning || !isValid}
                 className="w-full h-12 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl glow-border transition-all duration-300 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
               >
@@ -330,6 +341,12 @@ const Index = () => {
           <p className="text-[10px] text-muted-foreground/20 font-mono tracking-widest">v1.0 — jtc gitremix</p>
         </div>
       </div>
+
+      <PixPaymentModal
+        open={showPayment}
+        onClose={() => setShowPayment(false)}
+        onPaymentConfirmed={executeRemix}
+      />
     </div>
   );
 };
