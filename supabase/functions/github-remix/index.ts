@@ -18,38 +18,23 @@ async function githubApi(url: string, token: string, options: RequestInit = {}) 
   });
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`GitHub API error ${res.status}: ${body}`);
+    let parsed: any = {};
+    try { parsed = JSON.parse(body); } catch {}
+    
+    const msg = parsed.message || body;
+    
+    if (res.status === 401) {
+      throw new Error(`Token inválido ou expirado. Verifique suas credenciais.`);
+    }
+    if (res.status === 403) {
+      throw new Error(`Sem permissão. O token precisa ter permissão "Contents: Read and Write" no repositório. Vá em Settings > Developer Settings > Fine-grained tokens e adicione a permissão.`);
+    }
+    if (res.status === 404) {
+      throw new Error(`Repositório não encontrado. Verifique se a URL está correta e se o token tem acesso.`);
+    }
+    throw new Error(`GitHub API ${res.status}: ${msg}`);
   }
   return res.json();
-}
-
-async function getTree(owner: string, repo: string, token: string): Promise<any[]> {
-  const data = await githubApi(
-    `https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`,
-    token
-  );
-  return data.tree || [];
-}
-
-async function getBlob(owner: string, repo: string, sha: string, token: string): Promise<string> {
-  const data = await githubApi(
-    `https://api.github.com/repos/${owner}/${repo}/git/blobs/${sha}`,
-    token
-  );
-  return data.content; // base64
-}
-
-async function getDefaultBranch(owner: string, repo: string, token: string): Promise<string> {
-  const data = await githubApi(`https://api.github.com/repos/${owner}/${repo}`, token);
-  return data.default_branch;
-}
-
-async function getRef(owner: string, repo: string, branch: string, token: string): Promise<string> {
-  const data = await githubApi(
-    `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${branch}`,
-    token
-  );
-  return data.object.sha;
 }
 
 serve(async (req) => {
@@ -57,68 +42,79 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const steps: { message: string; success: boolean }[] = [];
+
   try {
     const { sourceOwner, sourceRepo, targetOwner, targetRepo, sourceToken, targetToken } = await req.json();
 
     if (!sourceOwner || !sourceRepo || !targetOwner || !targetRepo || !sourceToken || !targetToken) {
       return new Response(
-        JSON.stringify({ success: false, error: "Parâmetros faltando" }),
+        JSON.stringify({ success: false, error: "Parâmetros faltando", steps: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
 
-    const steps: { message: string; success: boolean }[] = [];
+    // 1. Validate source token
+    steps.push({ message: "Verificando token da conta mãe...", success: true });
+    const sourceRepoData = await githubApi(`https://api.github.com/repos/${sourceOwner}/${sourceRepo}`, sourceToken);
+    steps.push({ message: `Mãe OK: ${sourceRepoData.full_name}`, success: true });
 
-    // 1. Read source tree using SOURCE token
-    steps.push({ message: "Lendo árvore do repositório mãe...", success: true });
-    const sourceTree = await getTree(sourceOwner, sourceRepo, sourceToken);
-    const blobs = sourceTree.filter((item: any) => item.type === "blob");
-    steps.push({ message: `${blobs.length} arquivos encontrados na mãe`, success: true });
+    // 2. Validate target token
+    steps.push({ message: "Verificando token da conta filha...", success: true });
+    const targetRepoData = await githubApi(`https://api.github.com/repos/${targetOwner}/${targetRepo}`, targetToken);
+    steps.push({ message: `Filha OK: ${targetRepoData.full_name}`, success: true });
 
-    // 2. Get target default branch using TARGET token
-    const targetBranch = await getDefaultBranch(targetOwner, targetRepo, targetToken);
-    const targetHeadSha = await getRef(targetOwner, targetRepo, targetBranch, targetToken);
+    // 3. Check target permissions
+    if (targetRepoData.permissions && !targetRepoData.permissions.push) {
+      throw new Error("Token da filha não tem permissão de escrita (push) neste repositório.");
+    }
+
+    // 4. Read source tree
+    steps.push({ message: "Lendo arquivos da mãe...", success: true });
+    const treeData = await githubApi(
+      `https://api.github.com/repos/${sourceOwner}/${sourceRepo}/git/trees/${sourceRepoData.default_branch}?recursive=1`,
+      sourceToken
+    );
+    const blobs = (treeData.tree || []).filter((item: any) => item.type === "blob");
+    steps.push({ message: `${blobs.length} arquivos encontrados`, success: true });
+
+    // 5. Get target branch info
+    const targetBranch = targetRepoData.default_branch;
+    const refData = await githubApi(
+      `https://api.github.com/repos/${targetOwner}/${targetRepo}/git/ref/heads/${targetBranch}`,
+      targetToken
+    );
+    const targetHeadSha = refData.object.sha;
     steps.push({ message: `Branch filha: ${targetBranch} (${targetHeadSha.slice(0, 7)})`, success: true });
 
-    // 3. Download blobs from source, create in target
-    steps.push({ message: "Transferindo arquivos da mãe para filha...", success: true });
+    // 6. Transfer blobs
+    steps.push({ message: "Transferindo arquivos...", success: true });
     const newTreeItems: any[] = [];
 
     for (const blob of blobs) {
-      // Read from source with source token
-      const content = await getBlob(sourceOwner, sourceRepo, blob.sha, sourceToken);
-      // Write to target with target token
+      const blobData = await githubApi(
+        `https://api.github.com/repos/${sourceOwner}/${sourceRepo}/git/blobs/${blob.sha}`,
+        sourceToken
+      );
       const newBlob = await githubApi(
         `https://api.github.com/repos/${targetOwner}/${targetRepo}/git/blobs`,
         targetToken,
-        {
-          method: "POST",
-          body: JSON.stringify({ content, encoding: "base64" }),
-        }
+        { method: "POST", body: JSON.stringify({ content: blobData.content, encoding: "base64" }) }
       );
-      newTreeItems.push({
-        path: blob.path,
-        mode: blob.mode,
-        type: "blob",
-        sha: newBlob.sha,
-      });
+      newTreeItems.push({ path: blob.path, mode: blob.mode, type: "blob", sha: newBlob.sha });
     }
-
     steps.push({ message: `${newTreeItems.length} arquivos transferidos`, success: true });
 
-    // 4. Create NEW tree WITHOUT base_tree — this replaces ALL content
-    steps.push({ message: "Substituindo todo conteúdo da filha...", success: true });
+    // 7. Create new tree (replaces everything)
+    steps.push({ message: "Substituindo conteúdo da filha...", success: true });
     const newTree = await githubApi(
       `https://api.github.com/repos/${targetOwner}/${targetRepo}/git/trees`,
       targetToken,
-      {
-        method: "POST",
-        body: JSON.stringify({ tree: newTreeItems }),
-      }
+      { method: "POST", body: JSON.stringify({ tree: newTreeItems }) }
     );
 
-    // 5. Create commit on target
-    steps.push({ message: "Criando commit na filha...", success: true });
+    // 8. Create commit
+    steps.push({ message: "Criando commit...", success: true });
     const newCommit = await githubApi(
       `https://api.github.com/repos/${targetOwner}/${targetRepo}/git/commits`,
       targetToken,
@@ -132,26 +128,24 @@ serve(async (req) => {
       }
     );
 
-    // 6. Force update ref on target
-    steps.push({ message: "Atualizando referência da filha...", success: true });
+    // 9. Force update ref
+    steps.push({ message: "Atualizando branch...", success: true });
     await githubApi(
       `https://api.github.com/repos/${targetOwner}/${targetRepo}/git/refs/heads/${targetBranch}`,
       targetToken,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ sha: newCommit.sha, force: true }),
-      }
+      { method: "PATCH", body: JSON.stringify({ sha: newCommit.sha, force: true }) }
     );
 
-    steps.push({ message: "Remix completo! Conteúdo da mãe agora está na filha.", success: true });
+    steps.push({ message: "Remix completo!", success: true });
 
     return new Response(JSON.stringify({ success: true, steps }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
+    steps.push({ message: err.message, success: false });
     return new Response(
-      JSON.stringify({ success: false, error: err.message, steps: [] }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      JSON.stringify({ success: false, error: err.message, steps }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   }
 });
