@@ -6,6 +6,7 @@ import { ArrowDown, Zap, AlertTriangle, Terminal, GitBranch, ExternalLink } from
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import PixPaymentModal from "@/components/PixPaymentModal";
+import QueueStatus from "@/components/QueueStatus";
 
 interface LogEntry {
   message: string;
@@ -27,6 +28,8 @@ const Index = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [queueId, setQueueId] = useState<string | null>(null);
+  const [inQueue, setInQueue] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -76,17 +79,56 @@ const Index = () => {
     setShowPayment(true);
   };
 
-  const executeRemix = async () => {
+  const onPaymentConfirmed = async () => {
     const source = parseRepo(sourceRepo)!;
     const target = parseRepo(targetRepo)!;
 
     setShowPayment(false);
-    setIsRunning(true);
     setLogs([]);
-    addLog("💰 Pagamento confirmado! Iniciando remix...");
+    addLog("💰 Pagamento confirmado!");
+    addLog("Entrando na fila...");
+
+    try {
+      // Join queue
+      const { data: queueData, error: queueError } = await supabase.functions.invoke("remix-queue", {
+        body: {
+          action: "join",
+          source_repo: `${source.owner}/${source.repo}`,
+          target_repo: `${target.owner}/${target.repo}`,
+        },
+      });
+
+      if (queueError) throw queueError;
+      if (!queueData?.success) throw new Error(queueData?.error || "Erro ao entrar na fila");
+
+      setQueueId(queueData.queue_id);
+      setInQueue(true);
+
+      if (queueData.position <= 1) {
+        addLog("Fila livre! Iniciando remix...", "success");
+      } else {
+        addLog(`Posição na fila: #${queueData.position}`, "running");
+        addLog("Aguardando sua vez...", "pending");
+      }
+    } catch (err: any) {
+      addLog(`ERRO: ${err.message}`, "error");
+      toast.error(err.message);
+    }
+  };
+
+  const onQueueReady = () => {
+    executeRemix();
+  };
+
+  const executeRemix = async () => {
+    const source = parseRepo(sourceRepo)!;
+    const target = parseRepo(targetRepo)!;
+
+    setInQueue(false);
+    setIsRunning(true);
+    addLog("🚀 Sua vez! Executando remix...", "running");
     addLog(`SRC → ${source.owner}/${source.repo}`);
     addLog(`DST → ${target.owner}/${target.repo}`);
-    addLog("Enviando request...");
 
     try {
       const { data, error } = await supabase.functions.invoke("github-remix", {
@@ -118,12 +160,27 @@ const Index = () => {
         addLog(`FATAL: ${data?.error || "Erro desconhecido"}`, "error");
         toast.error(data?.error || "Falha no remix");
       }
+
+      // Mark queue as done
+      if (queueId) {
+        await supabase.functions.invoke("remix-queue", {
+          body: { action: "done", queue_id: queueId },
+        });
+      }
     } catch (err: any) {
       updateLastLog("error");
       addLog(`FATAL: ${err.message}`, "error");
       toast.error(err.message);
+
+      // Mark queue as error
+      if (queueId) {
+        await supabase.functions.invoke("remix-queue", {
+          body: { action: "error", queue_id: queueId },
+        });
+      }
     } finally {
       setIsRunning(false);
+      setQueueId(null);
       addLog("Processo finalizado.", "pending");
     }
   };
@@ -271,7 +328,7 @@ const Index = () => {
               {/* Submit */}
               <Button
                 onClick={handleRemixClick}
-                disabled={isRunning || !isValid}
+                disabled={isRunning || inQueue || !isValid}
                 className="w-full h-12 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl glow-border transition-all duration-300 hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
               >
                 {isRunning ? (
@@ -279,14 +336,28 @@ const Index = () => {
                     <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                     Processando...
                   </span>
+                ) : inQueue ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    Na fila...
+                  </span>
                 ) : (
-                  "$ remix --execute"
+                  "$ remix --execute (1 crédito)"
                 )}
               </Button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Queue Status */}
+      {inQueue && (
+        <div className="max-w-md mx-auto px-4 mt-4">
+          <div className="bg-card/80 backdrop-blur-sm border border-primary/20 rounded-2xl p-4 glow-box">
+            <QueueStatus queueId={queueId} onCanStart={onQueueReady} />
+          </div>
+        </div>
+      )}
 
       {/* TERMINAL */}
       <div className="mt-6 sm:mt-8">
@@ -345,7 +416,7 @@ const Index = () => {
       <PixPaymentModal
         open={showPayment}
         onClose={() => setShowPayment(false)}
-        onPaymentConfirmed={executeRemix}
+        onPaymentConfirmed={onPaymentConfirmed}
       />
     </div>
   );

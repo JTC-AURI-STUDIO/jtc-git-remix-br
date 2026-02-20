@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.check-payment]
 verify_jwt = false
+
+[functions.remix-queue]
+verify_jwt = false

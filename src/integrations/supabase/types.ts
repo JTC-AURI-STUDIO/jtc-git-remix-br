@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      remix_queue: {
+        Row: {
+          created_at: string
+          finished_at: string | null
+          id: string
+          payment_id: string | null
+          source_repo: string
+          started_at: string | null
+          status: string
+          target_repo: string
+        }
+        Insert: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          payment_id?: string | null
+          source_repo: string
+          started_at?: string | null
+          status?: string
+          target_repo: string
+        }
+        Update: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          payment_id?: string | null
+          source_repo?: string
+          started_at?: string | null
+          status?: string
+          target_repo?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
