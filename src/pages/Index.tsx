@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import LogLine, { LogStatus } from "@/components/LogLine";
-import { ArrowDown, Zap, AlertTriangle, Terminal, GitBranch, LogOut, Clock } from "lucide-react";
+import { ArrowDown, Zap, AlertTriangle, Terminal, GitBranch, LogOut, Clock, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import PixPaymentModal from "@/components/PixPaymentModal";
@@ -24,7 +24,7 @@ const getTime = () => {
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, isAdmin, signOut } = useAuth();
   const [sourceRepo, setSourceRepo] = useState("");
   const [targetRepo, setTargetRepo] = useState("");
   const [sourceToken, setSourceToken] = useState("");
@@ -128,9 +128,18 @@ const Index = () => {
       }
       addLog(`✓ Repo destino OK: ${target.owner}/${target.repo}`, "success");
 
-      addLog("✓ Tudo validado! Abrindo pagamento...", "success");
+      addLog("✓ Tudo validado!", "success");
       setIsValidating(false);
-      setShowPayment(true);
+
+      // Admin skips payment entirely
+      if (isAdmin) {
+        addLog("🔓 Admin detectado — remix grátis e sem fila!", "success");
+        setLogs([]);
+        executeRemix();
+      } else {
+        addLog("Abrindo pagamento...", "running");
+        setShowPayment(true);
+      }
     } catch (err: any) {
       addLog(`✗ ${err.message}`, "error");
       toast.error(err.message);
@@ -299,6 +308,17 @@ const Index = () => {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/admin")}
+              className="text-xs text-primary hover:text-primary/80 gap-1.5 h-8 font-bold"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              Admin
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -469,7 +489,7 @@ const Index = () => {
                     Na fila...
                   </span>
                 ) : (
-                  "$ remix --execute (1 crédito)"
+                  isAdmin ? "$ remix --execute (admin ∞)" : "$ remix --execute (1 crédito)"
                 )}
               </Button>
             </div>
