@@ -6,8 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  credits: number;
-  fetchCredits: () => Promise<void>;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,7 +15,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [credits, setCredits] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const getInitialSession = async () => {
@@ -42,27 +41,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const fetchCredits = async () => {
+  const fetchAdminStatus = async () => {
     if (user) {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('credits')
-        .eq('id', user.id)
-        .single();
+        .rpc('has_role', { _role: 'admin', _user_id: user.id });
 
-      if (!error && data) {
-        setCredits(data.credits);
+      if (!error) {
+        setIsAdmin(!!data);
       }
     } else {
-      setCredits(0);
+      setIsAdmin(false);
     }
   };
   
   useEffect(() => {
-    fetchCredits();
+    fetchAdminStatus();
   }, [user]);
 
-  const value = { user, session, loading, credits, fetchCredits };
+  const value = { user, session, loading, isAdmin };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
