@@ -12,7 +12,7 @@ import PixPaymentModal from "@/components/PixPaymentModal";
 import QueueStatus from "@/components/QueueStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Wand2, KeyRound, Loader2, LogOut, History, Gem } from "lucide-react";
+import { Wand2, KeyRound, Loader2, LogOut, History, Gem, ToggleLeft, ToggleRight } from "lucide-react";
 
 type AppState = "idle" | "awaiting_payment" | "in_queue" | "processing" | "success" | "error";
 
@@ -28,6 +28,8 @@ const Index = () => {
   const [sourceRepo, setSourceRepo] = useState("");
   const [targetRepo, setTargetRepo] = useState("");
   const [githubToken, setGithubToken] = useState("");
+  const [targetToken, setTargetToken] = useState("");
+  const [useTwoTokens, setUseTwoTokens] = useState(false);
   const [logs, setLogs] = useState<Log[]>([]);
   const [appState, setAppState] = useState<AppState>("idle");
   const [queueId, setQueueId] = useState<string | null>(null);
@@ -59,7 +61,7 @@ const Index = () => {
   };
   
   const handleRemix = async () => {
-    if (!sourceRepo || !targetRepo || !githubToken) {
+    if (!sourceRepo || !targetRepo || !githubToken || (useTwoTokens && !targetToken)) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -80,11 +82,17 @@ const Index = () => {
     setAppState("processing");
     addLog("Verificando disponibilidade...", "running");
     
+    const [srcOwner, srcRepo] = sourceRepo.split("/");
+    const [tgtOwner, tgtRepo] = targetRepo.split("/");
+    
     const { data, error } = await supabase.functions.invoke("github-remix", {
         body: {
-            source_repo: sourceRepo,
-            target_repo: targetRepo,
-            github_token: githubToken,
+            sourceOwner: srcOwner,
+            sourceRepo: srcRepo,
+            targetOwner: tgtOwner,
+            targetRepo: tgtRepo,
+            sourceToken: githubToken,
+            targetToken: useTwoTokens ? targetToken : githubToken,
         },
     });
     
@@ -165,11 +173,21 @@ const Index = () => {
                     onChange={setTargetRepo}
                 />
 
-                <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground flex items-center gap-1.5 leading-tight">
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-muted-foreground flex items-center gap-1.5 leading-tight">
                         <KeyRound className="w-3.5 h-3.5 text-primary shrink-0" />
-                        <span className="truncate">GitHub Personal Access Token</span>
-                    </label>
+                        <span className="truncate">{useTwoTokens ? "Token da Conta Mãe (Origem)" : "GitHub Personal Access Token"}</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setUseTwoTokens(!useTwoTokens)}
+                        className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        {useTwoTokens ? <ToggleRight className="w-4 h-4 text-primary" /> : <ToggleLeft className="w-4 h-4" />}
+                        {useTwoTokens ? "2 Tokens" : "1 Token"}
+                      </button>
+                    </div>
                     <Input
                         type="password"
                         value={githubToken}
@@ -177,6 +195,22 @@ const Index = () => {
                         placeholder="ghp_..."
                         className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20 glow-border font-mono text-xs h-10"
                     />
+                    
+                    {useTwoTokens && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-muted-foreground flex items-center gap-1.5 leading-tight">
+                          <KeyRound className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="truncate">Token da Conta Filha (Destino)</span>
+                        </label>
+                        <Input
+                            type="password"
+                            value={targetToken}
+                            onChange={(e) => setTargetToken(e.target.value)}
+                            placeholder="ghp_..."
+                            className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20 glow-border font-mono text-xs h-10"
+                        />
+                      </div>
+                    )}
                 </div>
                 
                 <TokenGuide/>
