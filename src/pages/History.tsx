@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Zap, ArrowLeft, Clock, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import PixPaymentModal from "@/components/PixPaymentModal";
+import { Zap, ArrowLeft, Clock, CheckCircle2, XCircle, Loader2, RefreshCw, CreditCard } from "lucide-react";
 
 interface HistoryEntry {
   id: string;
@@ -13,6 +14,7 @@ interface HistoryEntry {
   amount: number;
   created_at: string;
   finished_at: string | null;
+  payment_id: string | null;
 }
 
 const History = () => {
@@ -20,6 +22,8 @@ const History = () => {
   const { user } = useAuth();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showPayment, setShowPayment] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -30,6 +34,7 @@ const History = () => {
   }, [user]);
 
   const fetchHistory = async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from("remix_history")
       .select("*")
@@ -40,6 +45,17 @@ const History = () => {
       setEntries(data as HistoryEntry[]);
     }
     setLoading(false);
+  };
+
+  const handleRetryPayment = (entry: HistoryEntry) => {
+    setSelectedEntry(entry);
+    setShowPayment(true);
+  };
+
+  const onPaymentConfirmed = async () => {
+    setShowPayment(false);
+    setSelectedEntry(null);
+    await fetchHistory();
   };
 
   const statusIcon = (status: string) => {
@@ -77,7 +93,6 @@ const History = () => {
       <div className="fixed inset-0 scanline pointer-events-none z-50 opacity-30" />
 
       <div className="flex-1 flex flex-col items-center px-4 py-6 sm:py-10">
-        {/* Header */}
         <div className="w-full max-w-md">
           <div className="flex items-center justify-between mb-6">
             <Button
@@ -90,6 +105,9 @@ const History = () => {
               Voltar
             </Button>
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={fetchHistory} className="h-8 w-8">
+                <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
+              </Button>
               <Zap className="w-4 h-4 text-primary" />
               <span className="text-sm font-bold text-foreground font-mono">
                 JTC <span className="text-primary">GIT REMIX BR</span>
@@ -97,11 +115,10 @@ const History = () => {
             </div>
           </div>
 
-          {/* History card */}
           <div className="bg-card/80 backdrop-blur-sm border border-border rounded-2xl overflow-hidden glow-box">
             <div className="flex items-center gap-2 px-5 py-3 bg-muted/30 border-b border-border">
               <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[hsl(0,72%,50%)]" />
+                <div className="w-3 h-3 rounded-full bg-destructive" />
                 <div className="w-3 h-3 rounded-full bg-[hsl(45,90%,55%)]" />
                 <div className="w-3 h-3 rounded-full bg-primary" />
               </div>
@@ -162,6 +179,17 @@ const History = () => {
                         <span className="text-[10px] text-muted-foreground/40 font-mono">
                           R$ {Number(entry.amount).toFixed(2)}
                         </span>
+                        {entry.status === "pending" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => handleRetryPayment(entry)}
+                          >
+                            <CreditCard className="w-3 h-3" />
+                            Pagar
+                          </Button>
+                        )}
                         {entry.finished_at && (
                           <span className="text-[10px] text-muted-foreground/40 font-mono">
                             Finalizado: {formatDate(entry.finished_at)}
@@ -181,6 +209,12 @@ const History = () => {
           <p className="text-[10px] text-muted-foreground/30 font-mono">Criado por <span className="text-primary/40 font-bold">JARDIEL DE SOUSA LOPES</span> — Criador da <span className="text-primary/40 font-bold">JTC</span></p>
         </div>
       </div>
+
+      <PixPaymentModal
+        open={showPayment}
+        onClose={() => { setShowPayment(false); setSelectedEntry(null); }}
+        onPaymentConfirmed={onPaymentConfirmed}
+      />
     </div>
   );
 };

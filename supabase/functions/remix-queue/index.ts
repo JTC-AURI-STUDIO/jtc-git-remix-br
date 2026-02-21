@@ -18,6 +18,20 @@ serve(async (req) => {
   );
 
   try {
+    // Auto-cleanup: remove stale entries older than 30 minutes
+    await supabase
+      .from("remix_queue")
+      .delete()
+      .in("status", ["waiting", "processing"])
+      .lt("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString());
+
+    // Also clean old done/error entries
+    await supabase
+      .from("remix_queue")
+      .delete()
+      .in("status", ["done", "error"])
+      .lt("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+
     const { action, queue_id, source_repo, target_repo, payment_id } = await req.json();
 
     // JOIN QUEUE
