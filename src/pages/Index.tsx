@@ -67,19 +67,13 @@ const Index = () => {
     setLogs([]);
     addLog("Iniciando processo de remix...", "running");
     
-    if (auth.credits > 0) {
-        startProcessing();
-    } else {
-        setAppState("awaiting_payment");
-    }
+    setAppState("awaiting_payment");
   };
   
   const onPaymentConfirmed = () => {
     setAppState("idle");
-    auth.fetchCredits().then(() => {
-        toast.info("Crédito adicionado! Iniciando o remix...");
-        startProcessing();
-    });
+    toast.info("Pagamento confirmado! Iniciando o remix...");
+    startProcessing();
   };
   
   const startProcessing = async () => {
@@ -94,7 +88,7 @@ const Index = () => {
         },
     });
     
-    auth.fetchCredits();
+    // processing complete
 
     if(error) {
         addLog(`Erro ao iniciar remix: ${error.message}`, "error");
@@ -139,7 +133,7 @@ const Index = () => {
         <header className="flex justify-between items-center mb-4">
           <div className="text-sm text-muted-foreground">
             <p className="truncate max-w-[200px] sm:max-w-full">Usuário: <span className="text-primary font-bold">{auth.user.email}</span></p>
-            <p>Créditos: <span className="text-primary font-bold">{auth.credits}</span></p>
+            <p>Logado como: <span className="text-primary font-bold">{auth.user.email}</span></p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => navigate('/history')}>
@@ -193,7 +187,7 @@ const Index = () => {
             <div className="flex flex-col sm:flex-row gap-3">
                <Button onClick={handleRemix} className="w-full sm:w-auto flex-grow" disabled={isProcessing}>
                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4" />}
-                   {isProcessing ? 'Processando...' : `Remixar Agora ${auth.credits > 0 ? '(1 Crédito)' : ''}`}
+                   {isProcessing ? 'Processando...' : 'Remixar Agora'}
                </Button>
                <Button variant="outline" className="w-full sm:w-auto" onClick={() => setAppState("awaiting_payment")}>
                    <Gem className="mr-2 h-4 w-4 text-primary"/>
