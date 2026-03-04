@@ -164,6 +164,15 @@ const Products = () => {
 
   useEffect(() => {
     loadData();
+
+    const channel = supabase
+      .channel('products-list-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const loadData = async () => {
