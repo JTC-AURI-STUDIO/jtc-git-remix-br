@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "logo.jpg", "apple-touch-icon.png"],
+      includeAssets: ["favicon.ico", "logo.jpg", "logo-192.png", "apple-touch-icon.png"],
       manifest: {
         name: "JTC FluxPDV",
         short_name: "JTC FluxPDV",
