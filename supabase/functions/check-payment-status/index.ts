@@ -70,7 +70,7 @@ serve(async (req) => {
     }
 
     // Consultar status no Mercado Pago
-    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    const accessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
     if (!accessToken) {
       return new Response(JSON.stringify({ error: 'Configuração não encontrada' }), {
         status: 500,
