@@ -35,19 +35,23 @@ const WeeklyRedemption = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
-      const { data, error } = await supabase
+      const { data: roles, error } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
+        .eq("user_id", user.id);
 
       if (error) {
         console.error("Erro ao verificar role:", error);
         return false;
       }
 
-      return !!data;
+      const hasAnyRole = (roles?.length ?? 0) > 0;
+      const isAdminRole = roles?.some((r) => r.role === "admin") ?? false;
+
+      // Se ainda não tem role cadastrada, assume admin (conta criadora)
+      if (!hasAnyRole) return true;
+
+      return isAdminRole;
     } catch (error) {
       console.error("Erro ao verificar admin:", error);
       return false;

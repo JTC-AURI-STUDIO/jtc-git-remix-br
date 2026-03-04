@@ -198,7 +198,7 @@ const Auri = () => {
         supabase.from("sale_items").select("*, sales!inner(user_id)").eq("sales.user_id", user.id),
         supabase.from("products").select("*, categories(name)").eq("user_id", user.id),
         supabase.from("suppliers").select("*").eq("user_id", user.id),
-        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
         supabase.from("store_settings").select("store_name").eq("user_id", user.id).single(),
       ]);
 

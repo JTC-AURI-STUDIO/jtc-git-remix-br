@@ -72,79 +72,89 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Buscar perfil e configurações
-      const [{ data: profile }, { data: storeSettings }] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("trial_ends_at, subscription_ends_at, subscription_plan")
-          .eq("id", user.id)
-          .single(),
-        supabase
-          .from("store_settings")
-          .select("quick_actions_enabled, hide_trial_message")
-          .eq("user_id", user.id)
-          .single(),
-      ]);
+      const isMissingTableError = (err: any) => err?.code === "PGRST205";
 
-      // Calcular dias restantes de teste e assinatura
+      // Buscar perfil
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("created_at")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      // Store settings é opcional
+      let quickActionsEnabled = true;
+      let hideTrialMessage = false;
+      const { data: storeSettings, error: storeSettingsError } = await supabase
+        .from("store_settings")
+        .select("quick_actions_enabled, hide_trial_message")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!storeSettingsError && storeSettings) {
+        quickActionsEnabled = storeSettings.quick_actions_enabled ?? true;
+        hideTrialMessage = storeSettings.hide_trial_message ?? false;
+      }
+
+      // Calcular período de teste (3 dias)
+      const createdAt = profile?.created_at ? new Date(profile.created_at) : new Date();
+      const trialEnd = new Date(createdAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+      const now = new Date();
+      const isTrialActive = now <= trialEnd;
+
       let trialDaysLeft = 0;
       let subscriptionDaysLeft = 0;
       let subscriptionEndDate: Date | undefined = undefined;
       let subscriptionStatus: "active" | "trial" | "expired" = "expired";
 
-      if (profile) {
-        const now = new Date();
-
-        if (profile.trial_ends_at && new Date(profile.trial_ends_at) > now) {
-          const diffTime = new Date(profile.trial_ends_at).getTime() - now.getTime();
-          trialDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          subscriptionStatus = "trial";
-          subscriptionEndDate = new Date(profile.trial_ends_at);
-          subscriptionDaysLeft = trialDaysLeft;
-        } else if (profile.subscription_ends_at && new Date(profile.subscription_ends_at) > now) {
-          subscriptionStatus = "active";
-          subscriptionEndDate = new Date(profile.subscription_ends_at);
-          const diffTime = subscriptionEndDate.getTime() - now.getTime();
-          subscriptionDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        }
+      if (isTrialActive) {
+        const diffTime = trialEnd.getTime() - now.getTime();
+        trialDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        subscriptionStatus = "trial";
+        subscriptionEndDate = trialEnd;
+        subscriptionDaysLeft = trialDaysLeft;
       }
 
       // Vendas de hoje
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const { data: salesToday } = await supabase
+      const { data: salesToday, error: salesTodayError } = await supabase
         .from("sales")
         .select("total_amount")
         .eq("user_id", user.id)
         .gte("created_at", today.toISOString());
 
-      const totalToday = salesToday?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+      const totalToday = isMissingTableError(salesTodayError)
+        ? 0
+        : (salesToday?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0);
 
       // Vendas do mês
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-      const { data: salesMonth } = await supabase
+      const { data: salesMonth, error: salesMonthError } = await supabase
         .from("sales")
         .select("total_amount")
         .eq("user_id", user.id)
         .gte("created_at", firstDayOfMonth.toISOString());
 
-      const totalMonth = salesMonth?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0;
+      const totalMonth = isMissingTableError(salesMonthError)
+        ? 0
+        : (salesMonth?.reduce((sum, sale) => sum + Number(sale.total_amount), 0) || 0);
 
       // Produtos com estoque baixo
-      const { data: productsForStock } = await supabase
+      const { data: productsForStock, error: productsError } = await supabase
         .from("products")
         .select("id, stock_quantity, min_stock_quantity")
         .eq("user_id", user.id);
 
-      const lowStockCount =
-        productsForStock?.filter(
-          (product) => product.stock_quantity <= (product.min_stock_quantity ?? 0)
-        ).length || 0;
+      const lowStockCount = isMissingTableError(productsError)
+        ? 0
+        : (productsForStock?.filter(
+            (product) => product.stock_quantity <= (product.min_stock_quantity ?? 0)
+          ).length || 0);
 
       // Vendas recentes
-      const { data: recentSales } = await supabase
+      const { data: recentSales, error: recentSalesError } = await supabase
         .from("sales")
         .select("id")
         .eq("user_id", user.id)
@@ -152,16 +162,16 @@ const Dashboard = () => {
         .limit(5);
 
       setData({
-        salesToday: totalToday,
-        salesMonth: totalMonth,
+        salesToday: isMissingTableError(salesTodayError) ? 0 : totalToday,
+        salesMonth: isMissingTableError(salesMonthError) ? 0 : totalMonth,
         lowStockProducts: lowStockCount,
-        recentSales: recentSales?.length || 0,
+        recentSales: isMissingTableError(recentSalesError) ? 0 : (recentSales?.length || 0),
         subscriptionStatus,
         trialDaysLeft,
         subscriptionDaysLeft,
         subscriptionEndDate,
-        quickActionsEnabled: storeSettings?.quick_actions_enabled || false,
-        hideTrialMessage: storeSettings?.hide_trial_message || false,
+        quickActionsEnabled,
+        hideTrialMessage,
       });
     } catch (error) {
       console.error("Erro ao carregar dados:", error);

@@ -31,24 +31,31 @@ const DashboardLayout = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
       
       if (!session) {
         navigate("/auth");
+        return;
       }
+
+      // Garante role admin para conta criadora
+      await supabase.functions.invoke("ensure-admin-role");
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
       
       if (!session) {
         navigate("/auth");
+        return;
       }
+
+      await supabase.functions.invoke("ensure-admin-role");
     });
 
     return () => subscription.unsubscribe();

@@ -60,8 +60,8 @@ Deno.serve(async (req) => {
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('cpf')
-      .eq('id', userId)
-      .single()
+      .eq('user_id', userId)
+      .maybeSingle()
 
     if (profileError) {
       console.error('Error fetching profile:', profileError)
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
     await supabaseAdmin.from('user_roles').delete().eq('user_id', userId)
     
     // Delete profile
-    await supabaseAdmin.from('profiles').delete().eq('id', userId)
+    await supabaseAdmin.from('profiles').delete().eq('user_id', userId)
 
     // Step 4: Delete the auth user
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)

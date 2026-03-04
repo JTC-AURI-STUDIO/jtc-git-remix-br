@@ -108,8 +108,8 @@ serve(async (req) => {
       const { data: profile } = await supabaseAdmin
         .from('profiles')
         .select('trial_ends_at, subscription_ends_at')
-        .eq('id', user.id)
-        .single();
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       // Calcular nova data
       const now = new Date();
@@ -132,7 +132,7 @@ serve(async (req) => {
           subscription_ends_at: newEndDate.toISOString(),
           trial_ends_at: null,
         })
-        .eq('id', user.id);
+        .eq('user_id', user.id);
 
       // Atualizar pagamento
       await supabaseAdmin
