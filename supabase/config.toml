@@ -4,34 +4,34 @@ project_id = "vvjnizvqbegijvgrszot"
 verify_jwt = false
 
 [functions.create-pix-payment]
-verify_jwt = true
+verify_jwt = false
 
 [functions.mercadopago-webhook]
 verify_jwt = false
 
 [functions.check-payment-status]
-verify_jwt = true
+verify_jwt = false
 
 [functions.create-store-pix-payment]
-verify_jwt = true
+verify_jwt = false
 
 [functions.check-store-payment-status]
-verify_jwt = true
+verify_jwt = false
 
 [functions.create-employee]
-verify_jwt = true
+verify_jwt = false
 
 [functions.delete-employee]
-verify_jwt = true
+verify_jwt = false
 
 [functions.auri-chat]
-verify_jwt = true
+verify_jwt = false
 
 [functions.create-test-user]
 verify_jwt = false
 
 [functions.delete-account]
-verify_jwt = true
+verify_jwt = false
 
 [functions.send-confirmation-email]
 verify_jwt = false
@@ -40,4 +40,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.verify-email-otp]
+verify_jwt = false
+
+[functions.ensure-admin-role]
 verify_jwt = false
