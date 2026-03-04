@@ -40,20 +40,7 @@ const DashboardLayout = () => {
   const { theme, toggleTheme } = useThemeContext();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      
-      if (!session) {
-        navigate("/auth");
-        return;
-      }
-
-      // Fire-and-forget, não bloqueia UI
-      supabase.functions.invoke("ensure-admin-role").catch(() => {});
-    });
-
+    // First get current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -65,6 +52,23 @@ const DashboardLayout = () => {
       }
 
       supabase.functions.invoke("ensure-admin-role").catch(() => {});
+    });
+
+    // Then listen for changes - but only redirect on explicit sign out
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Only update state, don't redirect on transient events
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      // Only redirect to auth on explicit sign out (user clicked logout)
+      // TOKEN_REFRESHED failures or SIGNED_OUT from token issues should NOT redirect
+      if (event === "SIGNED_OUT") {
+        navigate("/auth");
+      }
+      
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        supabase.functions.invoke("ensure-admin-role").catch(() => {});
+      }
     });
 
     return () => subscription.unsubscribe();
