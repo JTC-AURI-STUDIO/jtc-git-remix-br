@@ -257,6 +257,22 @@ const POS = () => {
     fetchProducts();
     fetchStoreName();
     fetchCustomers();
+
+    // Realtime: atualizar produtos automaticamente
+    const channel = supabase
+      .channel('products-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        () => {
+          fetchProducts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
 
