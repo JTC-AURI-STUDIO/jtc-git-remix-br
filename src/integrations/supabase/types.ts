@@ -49,27 +49,39 @@ export type Database = {
       }
       profiles: {
         Row: {
+          blocked: boolean
           cpf: string
           created_at: string
           email: string
           email_verified: boolean
+          full_name: string | null
           id: string
+          invite_code: string | null
+          phone: string | null
           user_id: string
         }
         Insert: {
+          blocked?: boolean
           cpf: string
           created_at?: string
           email: string
           email_verified?: boolean
+          full_name?: string | null
           id?: string
+          invite_code?: string | null
+          phone?: string | null
           user_id: string
         }
         Update: {
+          blocked?: boolean
           cpf?: string
           created_at?: string
           email?: string
           email_verified?: boolean
+          full_name?: string | null
           id?: string
+          invite_code?: string | null
+          phone?: string | null
           user_id?: string
         }
         Relationships: []
@@ -100,12 +112,32 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_profile_created_at_by_email: {
+        Args: { p_email: string }
+        Returns: {
+          created_at: string
+        }[]
+      }
+      get_user_email_by_cpf: {
+        Args: { search_cpf: string }
+        Returns: {
+          email: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      is_cpf_blocked: { Args: { check_cpf: string }; Returns: boolean }
+      validate_invite_code: {
+        Args: { code: string }
+        Returns: {
+          is_already_used: boolean
+          is_valid: boolean
+        }[]
       }
     }
     Enums: {

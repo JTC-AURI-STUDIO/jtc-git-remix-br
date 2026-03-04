@@ -93,7 +93,7 @@ const Auth = () => {
     if (!showUnconfirmedEmailUI || !unconfirmedEmail) return;
 
     const fetchCreatedAt = async () => {
-      const { data } = await supabase.rpc('get_profile_created_at_by_email', { p_email: unconfirmedEmail });
+      const { data } = await (supabase.rpc as any)('get_profile_created_at_by_email', { p_email: unconfirmedEmail });
       if (!data || data.length === 0) return;
 
       const createdAt = new Date(data[0].created_at);
@@ -242,7 +242,7 @@ const Auth = () => {
       const isCPF = /^\d{11}$/.test(cleanIdentifier);
 
       if (isCPF) {
-        const { data: isBlocked } = await supabase.rpc('is_cpf_blocked', { check_cpf: cleanIdentifier });
+        const { data: isBlocked } = await (supabase.rpc as any)('is_cpf_blocked', { check_cpf: cleanIdentifier });
         if (isBlocked) {
           setShowBlockedAccountDialog(true);
           setIsLoading(false);
@@ -261,7 +261,7 @@ const Auth = () => {
         const isCPF = /^\d{11}$/.test(cleanId);
 
         if (isCPF) {
-          const { data } = await supabase.rpc('get_user_email_by_cpf', { search_cpf: cleanId });
+          const { data } = await (supabase.rpc as any)('get_user_email_by_cpf', { search_cpf: cleanId });
           if (data && data.length > 0) setUnconfirmedEmail(data[0].email);
         } else {
           setUnconfirmedEmail(usedIdentifier);
@@ -352,7 +352,7 @@ const Auth = () => {
 
     try {
       const cpfValue = formData.cpf.replace(/\D/g, "");
-      const { data: isBlocked, error: blockError } = await supabase.rpc('is_cpf_blocked', { check_cpf: cpfValue });
+      const { data: isBlocked, error: blockError } = await (supabase.rpc as any)('is_cpf_blocked', { check_cpf: cpfValue });
       if (!blockError && isBlocked) {
         setAuthError("Este CPF está bloqueado e não pode ser utilizado para criar uma nova conta.");
         setIsLoading(false);
