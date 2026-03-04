@@ -178,6 +178,9 @@ const Settings = () => {
     }
   };
 
+  const isMissingTableError = (error: any) =>
+    error?.code === "PGRST205" || error?.code === "42P01";
+
   const fetchSettings = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -186,11 +189,16 @@ const Settings = () => {
       .from("store_settings")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== "PGRST116") {
-      toast({ title: "Erro ao carregar configurações", variant: "destructive" });
-    } else if (data) {
+    if (error) {
+      if (!isMissingTableError(error)) {
+        toast({ title: "Erro ao carregar configurações", variant: "destructive" });
+      }
+      return;
+    }
+
+    if (data) {
       setSettings({
         store_name: data.store_name || "",
         commercial_phone: data.commercial_phone || "",
@@ -248,7 +256,7 @@ const Settings = () => {
       .from("store_settings")
       .select("id")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
     let error;
     if (existing) {

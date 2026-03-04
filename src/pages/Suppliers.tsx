@@ -44,6 +44,9 @@ const Suppliers = () => {
     notes: "",
   });
 
+  const isMissingTableError = (error: any) =>
+    error?.code === "PGRST205" || error?.code === "42P01";
+
   const fetchSuppliers = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -55,6 +58,10 @@ const Suppliers = () => {
       .order("name");
 
     if (error) {
+      if (isMissingTableError(error)) {
+        setSuppliers([]);
+        return;
+      }
       toast({ title: "Erro ao carregar fornecedores", variant: "destructive" });
     } else {
       setSuppliers(data || []);

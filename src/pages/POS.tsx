@@ -133,6 +133,9 @@ const POS = () => {
   const { toast } = useToast();
   const { isActive, isExpired, isTrial, loading } = useSubscription();
 
+  const isMissingTableError = (error: any) =>
+    error?.code === "PGRST205" || error?.code === "42P01";
+
   const fetchProducts = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -148,7 +151,11 @@ const POS = () => {
       .gt("stock_quantity", 0);
 
     if (error) {
-      toast({ title: "Erro ao carregar produtos", variant: "destructive" });
+      if (isMissingTableError(error)) {
+        setProducts([]);
+      } else {
+        toast({ title: "Erro ao carregar produtos", variant: "destructive" });
+      }
     } else {
       setProducts(data || []);
     }
@@ -166,6 +173,10 @@ const POS = () => {
       .order("name");
 
     if (error) {
+      if (isMissingTableError(error)) {
+        setCustomers([]);
+        return;
+      }
       toast({ title: "Erro ao carregar clientes", variant: "destructive" });
     } else {
       setCustomers(data || []);
@@ -180,7 +191,7 @@ const POS = () => {
       .from("store_settings")
       .select("store_name, pix_key_type, pix_key, pix_receiver_name, logo_url, pix_mode, mercado_pago_cpf, mercado_pago_name")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
     if (data?.store_name) {
       setStoreName(data.store_name);

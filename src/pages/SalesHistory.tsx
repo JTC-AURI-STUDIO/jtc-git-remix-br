@@ -52,19 +52,22 @@ const SalesHistory = () => {
   const { toast } = useToast();
   const { isActive, isExpired, isTrial, loading } = useSubscription();
 
+  const isMissingTableError = (error: any) =>
+    error?.code === "PGRST205" || error?.code === "42P01";
+
   const fetchStoreInfo = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     setUserEmail(user.email || "");
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("store_settings")
       .select("store_name")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (data?.store_name) {
+    if (!error && data?.store_name) {
       setStoreName(data.store_name);
     }
   };
@@ -88,6 +91,10 @@ const SalesHistory = () => {
       .order("created_at", { ascending: false });
 
     if (error) {
+      if (isMissingTableError(error)) {
+        setSales([]);
+        return;
+      }
       toast({ title: "Erro ao carregar vendas", variant: "destructive" });
       return;
     }
