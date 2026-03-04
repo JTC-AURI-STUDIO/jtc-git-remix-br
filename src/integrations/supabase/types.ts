@@ -86,6 +86,99 @@ export type Database = {
         }
         Relationships: []
       }
+      store_integrations: {
+        Row: {
+          created_at: string | null
+          encrypted_token: string | null
+          id: string
+          integration_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          encrypted_token?: string | null
+          id?: string
+          integration_type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          encrypted_token?: string | null
+          id?: string
+          integration_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      store_settings: {
+        Row: {
+          category: string | null
+          commercial_phone: string | null
+          created_at: string | null
+          hide_trial_message: boolean | null
+          id: string
+          logo_url: string | null
+          mercado_pago_cpf: string | null
+          mercado_pago_name: string | null
+          operation_type: string | null
+          pix_key: string | null
+          pix_key_type: string | null
+          pix_mode: string | null
+          pix_receiver_name: string | null
+          primary_color: string | null
+          quick_actions_enabled: boolean | null
+          store_address: string | null
+          store_name: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          commercial_phone?: string | null
+          created_at?: string | null
+          hide_trial_message?: boolean | null
+          id?: string
+          logo_url?: string | null
+          mercado_pago_cpf?: string | null
+          mercado_pago_name?: string | null
+          operation_type?: string | null
+          pix_key?: string | null
+          pix_key_type?: string | null
+          pix_mode?: string | null
+          pix_receiver_name?: string | null
+          primary_color?: string | null
+          quick_actions_enabled?: boolean | null
+          store_address?: string | null
+          store_name?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          commercial_phone?: string | null
+          created_at?: string | null
+          hide_trial_message?: boolean | null
+          id?: string
+          logo_url?: string | null
+          mercado_pago_cpf?: string | null
+          mercado_pago_name?: string | null
+          operation_type?: string | null
+          pix_key?: string | null
+          pix_key_type?: string | null
+          pix_mode?: string | null
+          pix_receiver_name?: string | null
+          primary_color?: string | null
+          quick_actions_enabled?: boolean | null
+          store_address?: string | null
+          store_name?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscription_payments: {
         Row: {
           amount: number
