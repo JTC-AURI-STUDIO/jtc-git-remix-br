@@ -86,6 +86,54 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          days_to_add: number
+          id: string
+          mercado_pago_payment_id: string
+          mercado_pago_pix_copy_paste: string | null
+          mercado_pago_qr_code: string | null
+          mercado_pago_qr_code_base64: string | null
+          paid_at: string | null
+          plan_type: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          days_to_add: number
+          id?: string
+          mercado_pago_payment_id: string
+          mercado_pago_pix_copy_paste?: string | null
+          mercado_pago_qr_code?: string | null
+          mercado_pago_qr_code_base64?: string | null
+          paid_at?: string | null
+          plan_type: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          days_to_add?: number
+          id?: string
+          mercado_pago_payment_id?: string
+          mercado_pago_pix_copy_paste?: string | null
+          mercado_pago_qr_code?: string | null
+          mercado_pago_qr_code_base64?: string | null
+          paid_at?: string | null
+          plan_type?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
