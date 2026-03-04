@@ -40,25 +40,7 @@ export function PermissionsProvider({ children, userId }: { children: React.Reac
 
     const loadPermissions = async () => {
       try {
-        // Check if user has admin role
-        const { data: adminRole } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userId)
-          .eq("role", "admin")
-          .maybeSingle();
-
-        if (adminRole) {
-          // User is admin - has all permissions
-          setIsAdmin(true);
-          setIsEmployee(false);
-          setAdminId(null);
-          setPermissions({});
-          setLoading(false);
-          return;
-        }
-
-        // Check if user is an employee
+        // 1) Sempre priorizar vínculo de funcionário (evita tratar funcionário como admin por role legado)
         const { data: employee } = await supabase
           .from("employees" as any)
           .select("id, admin_id, is_active")
@@ -72,7 +54,6 @@ export function PermissionsProvider({ children, userId }: { children: React.Reac
           setIsEmployee(true);
           setAdminId(emp.admin_id);
 
-          // Load permissions
           const { data: perms } = await supabase
             .from("employee_permissions" as any)
             .select("permission_key, allowed")
@@ -85,8 +66,25 @@ export function PermissionsProvider({ children, userId }: { children: React.Reac
             });
           }
           setPermissions(permMap);
+          setLoading(false);
+          return;
+        }
+
+        // 2) Sem vínculo de funcionário, verificar role admin
+        const { data: adminRole } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "admin")
+          .maybeSingle();
+
+        if (adminRole) {
+          setIsAdmin(true);
+          setIsEmployee(false);
+          setAdminId(null);
+          setPermissions({});
         } else {
-          // Neither admin nor employee — treat as admin (new user, role pending)
+          // Fluxo atual: usuário sem role explícita continua com acesso de admin para não bloquear onboarding
           setIsAdmin(true);
           setIsEmployee(false);
           setAdminId(null);
@@ -94,7 +92,6 @@ export function PermissionsProvider({ children, userId }: { children: React.Reac
         }
       } catch (err) {
         console.error("Error loading permissions:", err);
-        // Default to admin on error to not lock users out
         setIsAdmin(true);
       } finally {
         setLoading(false);

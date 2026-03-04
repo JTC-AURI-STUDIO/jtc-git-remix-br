@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
+import { PERMISSION_KEYS } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,8 +20,8 @@ interface RedemptionResult {
 
 const WeeklyRedemption = () => {
   const { toast } = useToast();
+  const { isAdmin, hasPermission, loading: permissionsLoading } = usePermissions();
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isEventActive, setIsEventActive] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [nextEventTime, setNextEventTime] = useState<string>("");
@@ -29,34 +31,7 @@ const WeeklyRedemption = () => {
   const [redemptionResult, setRedemptionResult] = useState<RedemptionResult | null>(null);
   const [alreadyRedeemed, setAlreadyRedeemed] = useState(false);
 
-  // Verifica se o usuário é admin
-  const checkAdminStatus = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return false;
-
-      const { data: roles, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id);
-
-      if (error) {
-        console.error("Erro ao verificar role:", error);
-        return false;
-      }
-
-      const hasAnyRole = (roles?.length ?? 0) > 0;
-      const isAdminRole = roles?.some((r) => r.role === "admin") ?? false;
-
-      // Se ainda não tem role cadastrada, assume admin (conta criadora)
-      if (!hasAnyRole) return true;
-
-      return isAdminRole;
-    } catch (error) {
-      console.error("Erro ao verificar admin:", error);
-      return false;
-    }
-  }, []);
+  const canAccessRedemption = isAdmin || hasPermission(PERMISSION_KEYS.access_redemption);
 
   // Verifica se já resgatou nesta semana
   const checkAlreadyRedeemed = useCallback(async () => {
@@ -171,22 +146,21 @@ const WeeklyRedemption = () => {
 
   useEffect(() => {
     const init = async () => {
-      const adminStatus = await checkAdminStatus();
-      setIsAdmin(adminStatus);
-      
-      if (adminStatus) {
+      if (permissionsLoading) return;
+
+      if (canAccessRedemption) {
         const redeemed = await checkAlreadyRedeemed();
         setAlreadyRedeemed(redeemed);
-        
+
         const eventActive = checkEventStatus();
         setIsEventActive(eventActive);
-        
+
         // Se evento ativo e não resgatou, gera o código
         if (eventActive && !redeemed) {
           await generateWeeklyCode();
         }
       }
-      
+
       setIsLoading(false);
     };
 
@@ -199,7 +173,7 @@ const WeeklyRedemption = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [checkAdminStatus, checkAlreadyRedeemed, checkEventStatus, generateWeeklyCode]);
+  }, [permissionsLoading, canAccessRedemption, checkAlreadyRedeemed, checkEventStatus, generateWeeklyCode]);
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, "").slice(0, 6);
@@ -274,8 +248,8 @@ const WeeklyRedemption = () => {
       );
     }
 
-    // Não é admin
-    if (!isAdmin) {
+    // Sem permissão de acesso ao módulo
+    if (!canAccessRedemption) {
       return (
         <div className="min-h-[60vh] flex items-center justify-center p-4">
           <Card className="w-full max-w-md text-center">
@@ -283,7 +257,7 @@ const WeeklyRedemption = () => {
               <Lock className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h2 className="text-xl font-bold text-foreground mb-2">Acesso Restrito</h2>
               <p className="text-muted-foreground">
-                Este módulo está disponível apenas para administradores da loja.
+                Você não tem permissão para acessar esta área.
               </p>
             </CardContent>
           </Card>
