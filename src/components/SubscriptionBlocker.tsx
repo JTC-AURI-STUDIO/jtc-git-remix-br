@@ -29,8 +29,8 @@ export const SubscriptionBlocker = ({ isTrial = false, isEmployee = false }: Sub
     const { data } = await supabase
       .from("profiles")
       .select("invite_code")
-      .eq("id", user.id)
-      .single();
+      .eq("user_id", user.id)
+      .maybeSingle();
 
     if (data?.invite_code) {
       setInviteCode(data.invite_code);

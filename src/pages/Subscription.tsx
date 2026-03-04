@@ -63,24 +63,19 @@ const Subscription = () => {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('subscription_ends_at, trial_ends_at')
-        .eq('id', user.id)
-        .single();
+        .select('created_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (profile) {
-        const endDate = profile.subscription_ends_at 
-          ? new Date(profile.subscription_ends_at) 
-          : profile.trial_ends_at 
-            ? new Date(profile.trial_ends_at) 
-            : null;
+      if (profile?.created_at) {
+        const createdAt = new Date(profile.created_at);
+        const endDate = new Date(createdAt.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-        if (endDate) {
-          setSubscriptionEndDate(endDate);
-          const now = new Date();
-          const diffTime = endDate.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          setDaysRemaining(Math.max(0, diffDays));
-        }
+        setSubscriptionEndDate(endDate);
+        const now = new Date();
+        const diffTime = endDate.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        setDaysRemaining(Math.max(0, diffDays));
       }
     };
 

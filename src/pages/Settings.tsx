@@ -110,8 +110,8 @@ const Settings = () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("invite_code")
-        .eq("id", user.id)
-        .single();
+        .eq("user_id", user.id)
+        .maybeSingle();
 
       if (error) {
         console.error("Erro ao buscar código de convite:", error);
