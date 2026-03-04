@@ -607,6 +607,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_cpf_available_for_employee: {
+        Args: { check_cpf: string }
+        Returns: {
+          available: boolean
+          reason: string
+        }[]
+      }
+      check_email_available_for_employee: {
+        Args: { check_email: string }
+        Returns: {
+          available: boolean
+        }[]
+      }
       check_employee_permission: {
         Args: { _permission_key: string; _user_id: string }
         Returns: boolean
