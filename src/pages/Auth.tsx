@@ -305,7 +305,7 @@ const Auth = () => {
   };
 
   const validateStep1 = () => {
-    if (!formData.fullName.trim()) { setAuthError("Nome completo é obrigatório."); return false; }
+    if (!formData.fullName.trim()) { setAuthError(docType === "cnpj" ? "Nome fantasia da empresa é obrigatório." : "Nome completo é obrigatório."); return false; }
     const docValue = formData.cpf.replace(/\D/g, "");
     if (docType === "cpf") {
       if (!isValidCPF(docValue)) { setAuthError("CPF inválido. Verifique os números digitados."); return false; }
@@ -751,10 +751,12 @@ const Auth = () => {
                     </div>
 
                     <div className="space-y-3">
-                      <Label htmlFor="fullName" className="text-sm font-semibold text-foreground/90">Nome Completo</Label>
+                      <Label htmlFor="fullName" className="text-sm font-semibold text-foreground/90">
+                        {docType === "cnpj" ? "Nome Fantasia da Empresa" : "Nome Completo"}
+                      </Label>
                       <Input
                         id="fullName"
-                        placeholder="Digite seu nome completo"
+                        placeholder={docType === "cnpj" ? "Digite o nome fantasia da empresa" : "Digite seu nome completo"}
                         value={formData.fullName}
                         onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                         required
