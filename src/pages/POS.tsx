@@ -147,8 +147,7 @@ const POS = () => {
       .from("products")
       .select("*")
       .eq("user_id", user.id)
-      .eq("is_active", true)
-      .gt("stock_quantity", 0);
+      .eq("is_active", true);
 
     if (error) {
       if (isMissingTableError(error)) {
@@ -2523,7 +2522,7 @@ ${paymentInfo}
                         {product.name}
                       </h3>
                       <p className="text-[10px] md:text-xs text-muted-foreground">
-                        Estoque: {product.stock_quantity}
+                        {(product as any).product_type === 'servico' ? 'Serviço' : `Estoque: ${product.stock_quantity}`}
                       </p>
                       <div className="space-y-1">
                         {product.promotional_price ? (
