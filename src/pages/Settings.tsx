@@ -1265,29 +1265,6 @@ const Settings = () => {
             </CollapsibleContent>
           </Collapsible>
         </Card>
-
-        {/* Zona de Perigo - Excluir Conta */}
-        <Card className="border-destructive/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-destructive text-sm md:text-base">
-              <Trash2 className="h-5 w-5 shrink-0" />
-              Zona de Perigo
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Ações irreversíveis relacionadas à sua conta. Prossiga com cuidado.
-            </p>
-            <Button 
-              variant="destructive" 
-              className="w-full sm:w-auto"
-              onClick={() => navigate("/excluir-minha-conta")}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir Minha Conta
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     </div>
     </PageLoader>
