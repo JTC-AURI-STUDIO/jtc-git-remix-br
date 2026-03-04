@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -38,6 +38,9 @@
 </head>
 
   <body>
+    <script>
+      (function(){var t=localStorage.getItem('jtc-theme');document.documentElement.className=t==='light'?'light':'dark'})();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
