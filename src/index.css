@@ -5,6 +5,17 @@
 /* JTC FluxPDV Professional Design System */
 
 @layer base {
+  /* Proteção global de imagens - impede download ao segurar */
+  img {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    pointer-events: none;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+  }
+
   :root {
     /* Background & Foreground - Dark theme matching auth page #0a0e1a */
     --background: 225 33% 7%;
