@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Trash2, Pencil, Users } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { PERMISSION_KEYS } from "@/lib/permissions";
 import { Navigate } from "react-router-dom";
 import PageLoader from "@/components/PageLoader";
 
@@ -30,7 +31,7 @@ const CARGO_LABELS: Record<string, string> = {
 
 const Employees = () => {
   const { toast } = useToast();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, hasPermission } = usePermissions();
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,10 +103,12 @@ const Employees = () => {
           <h1 className="text-2xl font-bold">Funcionários</h1>
           <p className="text-sm text-muted-foreground">Gerencie os funcionários da sua loja</p>
         </div>
-        <Button onClick={() => navigate("/funcionarios/novo")}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Adicionar
-        </Button>
+        {hasPermission(PERMISSION_KEYS.create_employee) && (
+          <Button onClick={() => navigate("/funcionarios/novo")}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Adicionar
+          </Button>
+        )}
       </div>
 
       {employees.length === 0 ? (
@@ -135,18 +138,22 @@ const Employees = () => {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="icon" onClick={() => navigate(`/funcionarios/editar/${emp.id}`)} title="Editar">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => handleDelete(emp)}
-                    disabled={isDeleting === emp.id}
-                    title="Remover"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {hasPermission(PERMISSION_KEYS.edit_employee) && (
+                    <Button variant="outline" size="icon" onClick={() => navigate(`/funcionarios/editar/${emp.id}`)} title="Editar">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {hasPermission(PERMISSION_KEYS.delete_employee) && (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => handleDelete(emp)}
+                      disabled={isDeleting === emp.id}
+                      title="Remover"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
