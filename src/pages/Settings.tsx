@@ -43,13 +43,12 @@ const Settings = () => {
 
   const [customCategory, setCustomCategory] = useState("");
   
-  // Estados para controlar seções abertas
-  const [storeInfoOpen, setStoreInfoOpen] = useState(false);
-  const [pixConfigOpen, setPixConfigOpen] = useState(false);
-  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
-  const [inviteCodeOpen, setInviteCodeOpen] = useState(false);
-  const [downloadAppOpen, setDownloadAppOpen] = useState(false);
-  const [manualOpen, setManualOpen] = useState(false);
+  // Apenas uma seção aberta por vez
+  const [openSection, setOpenSection] = useState<string | null>(null);
+
+  const toggleSection = (section: string) => {
+    setOpenSection(prev => prev === section ? null : section);
+  };
 
   // PWA Install states
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -305,8 +304,10 @@ const Settings = () => {
       toast({ title: "Erro ao salvar configurações", variant: "destructive" });
     } else {
       toast({ title: "Configurações salvas com sucesso!" });
-      // Disparar evento para atualizar o menu
+      setOpenSection(null);
       window.dispatchEvent(new CustomEvent('store-settings-updated'));
+      // Recarregar dados
+      fetchSettings();
     }
   };
 
@@ -342,8 +343,8 @@ const Settings = () => {
       <div className="grid gap-4 md:gap-6 w-full max-w-2xl">
         {/* Informações da Loja */}
         <Card className="overflow-hidden">
-          <Collapsible open={storeInfoOpen} onOpenChange={setStoreInfoOpen}>
-            <CardHeader className="cursor-pointer" onClick={() => setStoreInfoOpen(!storeInfoOpen)}>
+          <Collapsible open={openSection === 'storeInfo'} onOpenChange={() => toggleSection('storeInfo')}>
+            <CardHeader className="cursor-pointer" onClick={() => toggleSection('storeInfo')}>
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
                   <CardTitle className="flex items-center gap-2 text-sm md:text-base">
@@ -351,7 +352,7 @@ const Settings = () => {
                     Informações da Loja
                   </CardTitle>
                   <div className="shrink-0">
-                    {storeInfoOpen ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    {openSection === 'storeInfo' ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </div>
                 </div>
               </CollapsibleTrigger>
@@ -462,8 +463,8 @@ const Settings = () => {
 
         {/* Configuração PIX */}
         <Card className="overflow-hidden">
-          <Collapsible open={pixConfigOpen} onOpenChange={setPixConfigOpen}>
-            <CardHeader className="cursor-pointer" onClick={() => setPixConfigOpen(!pixConfigOpen)}>
+          <Collapsible open={openSection === 'pixConfig'} onOpenChange={() => toggleSection('pixConfig')}>
+            <CardHeader className="cursor-pointer" onClick={() => toggleSection('pixConfig')}>
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
                   <CardTitle className="flex items-center gap-2 text-sm md:text-base">
@@ -471,7 +472,7 @@ const Settings = () => {
                     Configuração PIX
                   </CardTitle>
                   <div className="shrink-0">
-                    {pixConfigOpen ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    {openSection === 'pixConfig' ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </div>
                 </div>
               </CollapsibleTrigger>
@@ -686,8 +687,8 @@ const Settings = () => {
 
         {/* Ações Rápidas */}
         <Card className="overflow-hidden">
-          <Collapsible open={quickActionsOpen} onOpenChange={setQuickActionsOpen}>
-            <CardHeader className="cursor-pointer" onClick={() => setQuickActionsOpen(!quickActionsOpen)}>
+          <Collapsible open={openSection === 'quickActions'} onOpenChange={() => toggleSection('quickActions')}>
+            <CardHeader className="cursor-pointer" onClick={() => toggleSection('quickActions')}>
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
                   <CardTitle className="flex items-center gap-2 text-sm md:text-base">
@@ -695,7 +696,7 @@ const Settings = () => {
                     Ações Rápidas
                   </CardTitle>
                   <div className="shrink-0">
-                    {quickActionsOpen ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    {openSection === 'quickActions' ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </div>
                 </div>
               </CollapsibleTrigger>
@@ -736,8 +737,8 @@ const Settings = () => {
 
         {/* Meu Código de Convite */}
         <Card className="border-accent/30 bg-accent/5 overflow-hidden">
-          <Collapsible open={inviteCodeOpen} onOpenChange={setInviteCodeOpen}>
-            <CardHeader className="cursor-pointer" onClick={() => setInviteCodeOpen(!inviteCodeOpen)}>
+          <Collapsible open={openSection === 'inviteCode'} onOpenChange={() => toggleSection('inviteCode')}>
+            <CardHeader className="cursor-pointer" onClick={() => toggleSection('inviteCode')}>
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
                   <CardTitle className="flex items-center gap-2 text-accent text-sm md:text-base">
@@ -745,7 +746,7 @@ const Settings = () => {
                     Meu Código de Convite
                   </CardTitle>
                   <div className="shrink-0">
-                    {inviteCodeOpen ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    {openSection === 'inviteCode' ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </div>
                 </div>
               </CollapsibleTrigger>
@@ -810,8 +811,8 @@ const Settings = () => {
 
         {/* Baixar App */}
         <Card className="border-primary/30 bg-primary/5 overflow-hidden">
-          <Collapsible open={downloadAppOpen} onOpenChange={setDownloadAppOpen}>
-            <CardHeader className="cursor-pointer" onClick={() => setDownloadAppOpen(!downloadAppOpen)}>
+          <Collapsible open={openSection === 'downloadApp'} onOpenChange={() => toggleSection('downloadApp')}>
+            <CardHeader className="cursor-pointer" onClick={() => toggleSection('downloadApp')}>
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
                   <CardTitle className="flex items-center gap-2 text-primary text-sm md:text-base">
@@ -819,7 +820,7 @@ const Settings = () => {
                     Baixar App
                   </CardTitle>
                   <div className="shrink-0">
-                    {downloadAppOpen ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    {openSection === 'downloadApp' ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </div>
                 </div>
               </CollapsibleTrigger>
@@ -896,10 +897,10 @@ const Settings = () => {
 
         {/* Manual Completo do Sistema - Premium */}
         <Card className="mt-6 overflow-hidden border-0 shadow-lg">
-          <Collapsible open={manualOpen} onOpenChange={setManualOpen}>
+          <Collapsible open={openSection === 'manual'} onOpenChange={() => toggleSection('manual')}>
             <CardHeader 
               className="cursor-pointer bg-gradient-to-br from-primary/5 to-accent/5 border-b border-border/50" 
-              onClick={() => setManualOpen(!manualOpen)}
+              onClick={() => toggleSection('manual')}
             >
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
@@ -910,7 +911,7 @@ const Settings = () => {
                     Manual Completo do Sistema
                   </CardTitle>
                   <div className="shrink-0">
-                    {manualOpen ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                    {openSection === 'manual' ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </div>
                 </div>
               </CollapsibleTrigger>
