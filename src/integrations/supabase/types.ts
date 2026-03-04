@@ -618,6 +618,7 @@ export type Database = {
         Args: { check_email: string }
         Returns: {
           available: boolean
+          reason: string
         }[]
       }
       check_employee_permission: {
