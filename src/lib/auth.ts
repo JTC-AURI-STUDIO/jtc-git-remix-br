@@ -16,7 +16,7 @@ export interface SignUpData {
 }
 
 export const signUp = async (data: SignUpData) => {
-  const { error } = await supabase.auth.signUp({
+  const { data: signUpData, error } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
     options: {
@@ -42,6 +42,16 @@ export const signUp = async (data: SignUpData) => {
     }
 
     throw error;
+  }
+
+  // Supabase returns a "fake" user with no session and no identities when
+  // the email is already registered (security measure to not reveal existing accounts).
+  // Detect this and show a clear error instead of going to the confirmation screen.
+  if (
+    signUpData?.user &&
+    (!signUpData.user.identities || signUpData.user.identities.length === 0)
+  ) {
+    throw new Error("Este e-mail já está cadastrado. Se você esqueceu sua senha, tente recuperá-la na tela de login.");
   }
 };
 

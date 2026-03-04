@@ -402,13 +402,15 @@ const Auth = () => {
 
     } catch (error: any) {
       const errorMsg = (error.message || "").toLowerCase();
-      if (
+      if (errorMsg.includes("já está cadastrado") || errorMsg.includes("esqueceu sua senha")) {
+        setAuthError("Este e-mail já está cadastrado. Se você esqueceu sua senha, tente recuperá-la na tela de login.");
+      } else if (
         errorMsg.includes("já existe um usuário cadastrado") ||
         errorMsg.includes("user already registered") ||
         errorMsg.includes("email address is already registered") ||
         errorMsg.includes("already been registered")
       ) {
-        setAuthError("Este e-mail ou CPF está aguardando verificação. Verifique sua caixa de entrada (e spam). Após 24 horas sem confirmação, o cadastro será liberado para nova tentativa.");
+        setAuthError("Este e-mail ou CPF já está em uso. Se você já se cadastrou, verifique seu e-mail (e spam) para confirmar. Após 24 horas sem confirmação, o cadastro será liberado.");
       } else {
         setAuthError(error.message || "Não foi possível criar sua conta. Tente novamente.");
       }
