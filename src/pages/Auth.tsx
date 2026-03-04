@@ -266,12 +266,14 @@ const Auth = () => {
           setUnconfirmedEmail(usedIdentifier);
         }
         setShowUnconfirmedEmailUI(true);
-      } else if (errorMessage.includes("invalid login credentials") || errorMessage.includes("invalid_credentials")) {
+      } else if (errorMessage.includes("invalid login credentials") || errorMessage.includes("invalid_credentials") || errorMessage.includes("invalid api key") || errorMessage.includes("invalid claim")) {
         setAuthError("E-mail/CPF ou senha incorretos. Verifique seus dados e tente novamente.");
       } else if (errorMessage.includes("cpf não encontrado")) {
         setAuthError("CPF não encontrado. Verifique se digitou corretamente ou crie uma conta.");
+      } else if (errorMessage.includes("fetch") || errorMessage.includes("network") || errorMessage.includes("failed")) {
+        setAuthError("Erro de conexão. Verifique sua internet e tente novamente.");
       } else {
-        setAuthError(error.message || "Ocorreu um erro ao tentar entrar. Tente novamente.");
+        setAuthError("E-mail/CPF ou senha incorretos. Verifique seus dados e tente novamente.");
       }
     } finally {
       setIsLoading(false);
