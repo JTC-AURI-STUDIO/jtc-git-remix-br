@@ -1228,6 +1228,46 @@ const Auth = () => {
                     <Button
                       type="button"
                       variant="outline"
+                      onClick={async () => {
+                        setIsLoading(true);
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession();
+                          if (session?.user?.email_confirmed_at) {
+                            toast({ title: "E-mail confirmado!", description: "Redirecionando para o dashboard..." });
+                            navigate("/dashboard");
+                            return;
+                          }
+                          // Tenta fazer login para verificar se já confirmou
+                          const { data, error } = await supabase.auth.signInWithPassword({
+                            email: formData.email,
+                            password: formData.password,
+                          });
+                          if (!error && data?.user?.email_confirmed_at) {
+                            toast({ title: "E-mail confirmado!", description: "Redirecionando para o dashboard..." });
+                            navigate("/dashboard");
+                          } else {
+                            if (!error && data?.session) await supabase.auth.signOut();
+                            toast({ variant: "destructive", title: "E-mail ainda não confirmado", description: "Clique no link que enviamos para seu e-mail antes de continuar." });
+                          }
+                        } catch {
+                          toast({ variant: "destructive", title: "E-mail ainda não confirmado", description: "Clique no link que enviamos para seu e-mail." });
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                      className="w-full h-14 rounded-xl border-primary/50 text-primary hover:bg-primary/10 font-bold"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Verificando...</>
+                      ) : (
+                        <><CheckCircle2 className="mr-2 h-5 w-5" />Já confirmei meu e-mail</>
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={() => handleResendConfirmationEmail()}
                       className="w-full h-14 rounded-xl border-border/50 hover:bg-muted/50"
                       disabled={isResendingConfirmation}
