@@ -43,8 +43,6 @@ export const PERMISSION_KEYS = {
   edit_employee: "edit_employee",
   delete_employee: "delete_employee",
 
-  // Auri Chat
-  access_auri: "access_auri",
 } as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[keyof typeof PERMISSION_KEYS];
@@ -124,12 +122,6 @@ export const PERMISSION_GROUPS = [
       { key: PERMISSION_KEYS.access_redemption, label: "Acessar Resgate Semanal" },
     ],
   },
-  {
-    label: "Assistente Auri",
-    permissions: [
-      { key: PERMISSION_KEYS.access_auri, label: "Acessar Assistente Auri" },
-    ],
-  },
 ];
 
 // Map routes to required permissions
@@ -154,7 +146,6 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   "/configuracoes": PERMISSION_KEYS.access_settings,
   "/assinatura": PERMISSION_KEYS.access_subscription,
   "/resgate-semanal": PERMISSION_KEYS.access_redemption,
-  "/auri": PERMISSION_KEYS.access_auri,
 };
 
 // Map quick action paths to required permissions
