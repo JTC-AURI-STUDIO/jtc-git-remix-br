@@ -15,12 +15,7 @@ serve(async (req) => {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
+      { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
     const authHeader = req.headers.get('Authorization');
@@ -37,6 +32,29 @@ serve(async (req) => {
     if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Usuário não autenticado' }), {
         status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check if user is an employee - if so, don't assign admin role
+    const isEmployee = user.user_metadata?.is_employee === true;
+    if (isEmployee) {
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'employee' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Also check employees table
+    const { data: empRecord } = await supabaseAdmin
+      .from('employees')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (empRecord) {
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'employee' }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

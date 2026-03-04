@@ -15,103 +15,112 @@ serve(async (req) => {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
+      { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
     const authHeader = req.headers.get('Authorization')!;
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
-    if (userError || !user) {
-      throw new Error('Não autorizado');
-    }
+    if (userError || !user) throw new Error('Não autorizado');
 
-    // Verificar se o usuário é admin
+    // Verify admin role
     const { data: userRole } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
-      .single();
+      .eq('role', 'admin')
+      .maybeSingle();
 
-    if (!userRole || userRole.role !== 'admin') {
-      throw new Error('Apenas administradores podem criar funcionários');
+    if (!userRole) throw new Error('Apenas administradores podem criar funcionários');
+
+    const { full_name, cpf, password, permissions } = await req.json();
+
+    if (!full_name || !cpf || !password) {
+      throw new Error('Nome, CPF e senha são obrigatórios');
     }
 
-    const { email, password, full_name, cpf, phone, role, admin_id } = await req.json();
+    // Clean CPF for email generation
+    const cleanCpf = cpf.replace(/\D/g, '');
+    const syntheticEmail = `emp_${cleanCpf}@employee.jtcflux.internal`;
 
-    // Criar usuário no Auth - marcando como funcionário para não receber admin role
+    // Check if employee with this CPF already exists for this admin
+    const { data: existing } = await supabaseAdmin
+      .from('employees')
+      .select('id')
+      .eq('admin_id', user.id)
+      .eq('cpf', cleanCpf)
+      .maybeSingle();
+
+    if (existing) throw new Error('Já existe um funcionário com este CPF');
+
+    // Create auth user
     const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: syntheticEmail,
       password,
       email_confirm: true,
       user_metadata: {
         full_name,
-        cpf,
-        phone,
-        is_employee: true, // Flag para impedir que receba role admin no trigger
+        cpf: cleanCpf,
+        is_employee: true,
       },
     });
 
     if (signUpError) throw signUpError;
     if (!newUser.user) throw new Error('Erro ao criar usuário');
 
-    // Criar registro do funcionário
-    const { error: employeeError } = await supabaseAdmin
+    // Create employee record
+    const { data: employeeData, error: employeeError } = await supabaseAdmin
       .from('employees')
       .insert({
         user_id: newUser.user.id,
-        admin_id,
+        admin_id: user.id,
         full_name,
-        email,
-        phone,
-        cpf,
-        role,
-      });
-
-    if (employeeError) throw employeeError;
-
-    // Atribuir role ao funcionário
-    const { error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .insert({
-        user_id: newUser.user.id,
-        role,
-      });
-
-    if (roleError) throw roleError;
-
-    // Buscar ID do funcionário criado
-    const { data: employeeData } = await supabaseAdmin
-      .from('employees')
+        email: syntheticEmail,
+        cpf: cleanCpf,
+        role: 'user',
+      })
       .select('id')
-      .eq('user_id', newUser.user.id)
       .single();
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        employee_id: employeeData?.id,
-        user_id: newUser.user.id 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    );
+    if (employeeError) {
+      // Rollback: delete auth user
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+      throw employeeError;
+    }
 
+    // Assign 'user' role
+    await supabaseAdmin.from('user_roles').insert({
+      user_id: newUser.user.id,
+      role: 'user',
+    });
+
+    // Insert permissions
+    if (permissions && Array.isArray(permissions) && employeeData) {
+      const permissionRows = permissions.map((p: { key: string; allowed: boolean }) => ({
+        employee_id: employeeData.id,
+        permission_key: p.key,
+        allowed: p.allowed,
+      }));
+
+      if (permissionRows.length > 0) {
+        const { error: permError } = await supabaseAdmin
+          .from('employee_permissions')
+          .insert(permissionRows);
+
+        if (permError) console.error('Error inserting permissions:', permError);
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, employee_id: employeeData?.id, user_id: newUser.user.id }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+    );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     );
   }
 });

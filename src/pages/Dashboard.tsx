@@ -7,6 +7,8 @@ import { TrendingUp, Package, ShoppingCart, AlertTriangle, Calendar } from "luci
 import { Link } from "react-router-dom";
 import { PixFeeCalculator } from "@/components/PixFeeCalculator";
 import { DashboardSkeleton } from "@/components/skeletons";
+import { usePermissions } from "@/hooks/usePermissions";
+import { QUICK_ACTION_PERMISSIONS } from "@/lib/permissions";
 
 // Importar imagens de ações rápidas
 import quickActionProdutos from "@/assets/quick-action-produtos.png";
@@ -48,6 +50,7 @@ const quickActions = [
 ];
 
 const Dashboard = () => {
+  const { hasPermission, isAdmin, getEffectiveUserId } = usePermissions();
   const [data, setData] = useState<DashboardData>({
     salesToday: 0,
     salesMonth: 0,
@@ -63,6 +66,14 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showCalculator, setShowCalculator] = useState(false);
 
+  // Filter quick actions by permissions
+  const filteredQuickActions = quickActions.filter((action) => {
+    if (action.isModal) return true; // Calculadora always visible
+    const permKey = QUICK_ACTION_PERMISSIONS[action.path];
+    if (permKey) return hasPermission(permKey);
+    return true;
+  });
+
   useEffect(() => {
     loadDashboardData();
   }, []);
@@ -72,13 +83,16 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // For employees, use admin's user_id to query data
+      const effectiveUserId = getEffectiveUserId() || user.id;
+
       const isMissingTableError = (err: any) => err?.code === "PGRST205";
 
       // Buscar perfil
       const { data: profile } = await supabase
         .from("profiles")
         .select("created_at")
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .maybeSingle();
 
       // Store settings é opcional
@@ -87,7 +101,7 @@ const Dashboard = () => {
       const { data: storeSettings, error: storeSettingsError } = await supabase
         .from("store_settings")
         .select("quick_actions_enabled, hide_trial_message")
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .maybeSingle();
 
       if (!storeSettingsError && storeSettings) {
@@ -121,7 +135,7 @@ const Dashboard = () => {
       const { data: salesToday, error: salesTodayError } = await supabase
         .from("sales")
         .select("total_amount")
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .gte("created_at", today.toISOString());
 
       const totalToday = isMissingTableError(salesTodayError)
@@ -134,7 +148,7 @@ const Dashboard = () => {
       const { data: salesMonth, error: salesMonthError } = await supabase
         .from("sales")
         .select("total_amount")
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .gte("created_at", firstDayOfMonth.toISOString());
 
       const totalMonth = isMissingTableError(salesMonthError)
@@ -145,7 +159,7 @@ const Dashboard = () => {
       const { data: productsForStock, error: productsError } = await supabase
         .from("products")
         .select("id, stock_quantity, min_stock_quantity")
-        .eq("user_id", user.id);
+        .eq("user_id", effectiveUserId);
 
       const lowStockCount = isMissingTableError(productsError)
         ? 0
@@ -157,7 +171,7 @@ const Dashboard = () => {
       const { data: recentSales, error: recentSalesError } = await supabase
         .from("sales")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .order("created_at", { ascending: false })
         .limit(5);
 
@@ -303,7 +317,7 @@ const Dashboard = () => {
       {/* Ações Rápidas com Logos */}
       {data.quickActionsEnabled && (
         <div className="grid grid-cols-4 md:grid-cols-10 gap-4">
-          {quickActions.map((action) => (
+          {filteredQuickActions.map((action) => (
             action.isModal ? (
               <button 
                 key={action.path} 
