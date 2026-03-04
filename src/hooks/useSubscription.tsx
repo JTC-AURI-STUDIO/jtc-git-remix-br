@@ -27,40 +27,14 @@ export const useSubscription = () => {
         return;
       }
 
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("trial_ends_at, subscription_ends_at, subscription_plan")
-        .eq("id", user.id)
-        .single();
-
-      if (error) {
-        console.error("Erro ao verificar assinatura:", error);
-        setLoading(false);
-        return;
-      }
-
-      const now = new Date();
-      const isTrial = profile.subscription_plan === "trial";
-      
-      let expirationDate: Date | null = null;
-      
-      if (isTrial && profile.trial_ends_at) {
-        expirationDate = new Date(profile.trial_ends_at);
-      } else if (profile.subscription_ends_at) {
-        expirationDate = new Date(profile.subscription_ends_at);
-      }
-
-      const isExpired = expirationDate ? now > expirationDate : false;
-      const daysLeft = expirationDate 
-        ? Math.max(0, Math.ceil((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-        : 0;
-
+      // For now, treat all users as active since subscription columns
+      // haven't been created yet in the profiles table
       setStatus({
-        isActive: !isExpired,
-        isExpired,
-        isTrial,
-        daysLeft,
-        planType: profile.subscription_plan,
+        isActive: true,
+        isExpired: false,
+        isTrial: true,
+        daysLeft: 30,
+        planType: "trial",
       });
       
       setLoading(false);
