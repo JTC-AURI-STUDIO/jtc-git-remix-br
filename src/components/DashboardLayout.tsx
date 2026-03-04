@@ -31,7 +31,7 @@ const DashboardLayout = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -41,11 +41,11 @@ const DashboardLayout = () => {
         return;
       }
 
-      // Garante role admin para conta criadora
-      await supabase.functions.invoke("ensure-admin-role");
+      // Fire-and-forget, não bloqueia UI
+      supabase.functions.invoke("ensure-admin-role").catch(() => {});
     });
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -55,7 +55,7 @@ const DashboardLayout = () => {
         return;
       }
 
-      await supabase.functions.invoke("ensure-admin-role");
+      supabase.functions.invoke("ensure-admin-role").catch(() => {});
     });
 
     return () => subscription.unsubscribe();
