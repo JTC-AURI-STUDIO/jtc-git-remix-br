@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useFormPersistence } from "@/hooks/useFormPersistence";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,10 @@ const Auth = () => {
     city: "",
     state: "",
   });
+
+  // Persist form data for 24h (survives refresh/offline)
+  const { clearPersisted: clearFormPersist } = useFormPersistence("auth_register", formData, setFormData);
+  const { clearPersisted: clearAddressPersist } = useFormPersistence("auth_address", addressData, setAddressData);
   const [selectedEstado, setSelectedEstado] = useState("");
   const [selectedCidade, setSelectedCidade] = useState("");
   const [estados, setEstados] = useState<Estado[]>([]);
@@ -398,6 +403,8 @@ const Auth = () => {
         });
       }
 
+      clearFormPersist();
+      clearAddressPersist();
       setAccountCreated(true);
       setRegisterStep(4);
       toast({ title: "Conta criada!", description: "Enviamos um link de confirmação para seu e-mail." });
@@ -426,6 +433,8 @@ const Auth = () => {
   };
 
   const resetForm = () => {
+    clearFormPersist();
+    clearAddressPersist();
     setRegisterStep(1);
     setDocType("cpf");
     setFormData({ fullName: "", cpf: "", email: "", phone: "", password: "", confirmPassword: "", cep: "", number: "" });
