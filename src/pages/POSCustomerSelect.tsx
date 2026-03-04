@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, User, ArrowLeft } from "lucide-react";
+import { Search, User, ArrowLeft, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Customer {
@@ -58,14 +58,23 @@ const POSCustomerSelect = () => {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/pdv", { state: { fromCustomerSelect: true } })}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-xl font-bold">Selecionar Cliente</h1>
-          <p className="text-sm text-muted-foreground">Escolha o cliente para a venda fiado</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/pdv", { state: { fromCustomerSelect: true } })}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold">Selecionar Cliente</h1>
+            <p className="text-sm text-muted-foreground">Escolha o cliente para a venda fiado</p>
+          </div>
         </div>
+        <Button
+          onClick={() => navigate("/clientes/novo")}
+          className="bg-gradient-to-r from-primary to-accent hover:from-primary-hover hover:to-accent-hover"
+        >
+          <UserPlus className="h-4 w-4 mr-2" />
+          Novo Cliente
+        </Button>
       </div>
 
       {/* Search */}
