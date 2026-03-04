@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Shield, Users } from "lucide-react";
+import { UserPlus, Trash2, Pencil, Users } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Navigate } from "react-router-dom";
 import PageLoader from "@/components/PageLoader";
@@ -13,10 +14,19 @@ interface Employee {
   id: string;
   user_id: string;
   full_name: string;
+  email: string;
   cpf: string;
+  cargo: string;
+  description: string | null;
   is_active: boolean;
   created_at: string;
 }
+
+const CARGO_LABELS: Record<string, string> = {
+  administrador: "Administrador",
+  gerente: "Gerente",
+  caixa: "Caixa",
+};
 
 const Employees = () => {
   const { toast } = useToast();
@@ -34,7 +44,7 @@ const Employees = () => {
     try {
       const { data, error } = await supabase
         .from("employees" as any)
-        .select("id, user_id, full_name, cpf, is_active, created_at")
+        .select("id, user_id, full_name, email, cpf, cargo, description, is_active, created_at")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -111,13 +121,22 @@ const Employees = () => {
           {employees.map((emp) => (
             <Card key={emp.id}>
               <CardContent className="flex items-center justify-between py-4">
-                <div>
-                  <p className="font-semibold">{emp.full_name}</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold">{emp.full_name}</p>
+                    <Badge variant="secondary" className="text-xs">
+                      {CARGO_LABELS[emp.cargo] || emp.cargo}
+                    </Badge>
+                  </div>
                   <p className="text-sm text-muted-foreground">CPF: {formatCPF(emp.cpf)}</p>
+                  <p className="text-xs text-muted-foreground">{emp.email}</p>
+                  {emp.description && (
+                    <p className="text-xs text-muted-foreground/70 italic">{emp.description}</p>
+                  )}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="icon" onClick={() => navigate(`/funcionarios/editar/${emp.id}`)} title="Editar permissões">
-                    <Shield className="h-4 w-4" />
+                  <Button variant="outline" size="icon" onClick={() => navigate(`/funcionarios/editar/${emp.id}`)} title="Editar">
+                    <Pencil className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="destructive"

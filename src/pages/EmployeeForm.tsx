@@ -6,12 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Navigate } from "react-router-dom";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
 import { ChevronLeft, Eye, EyeOff, Save } from "lucide-react";
 import PageLoader from "@/components/PageLoader";
+
+const CARGO_OPTIONS = [
+  { value: "administrador", label: "Administrador" },
+  { value: "gerente", label: "Gerente" },
+  { value: "caixa", label: "Caixa" },
+];
 
 const EmployeeForm = () => {
   const { id } = useParams();
@@ -27,8 +35,11 @@ const EmployeeForm = () => {
 
   const [form, setForm] = useState({
     full_name: "",
+    email: "",
     cpf: "",
     password: "",
+    cargo: "caixa",
+    description: "",
   });
 
   const [permissions, setPermissions] = useState<Record<string, boolean>>(() => {
@@ -49,7 +60,7 @@ const EmployeeForm = () => {
     try {
       const { data: emp, error } = await supabase
         .from("employees" as any)
-        .select("id, full_name, cpf, is_active")
+        .select("id, full_name, email, cpf, cargo, description, is_active")
         .eq("id", id)
         .maybeSingle();
 
@@ -61,7 +72,14 @@ const EmployeeForm = () => {
 
       const employee = emp as any;
       setEmployeeName(employee.full_name);
-      setForm({ full_name: employee.full_name, cpf: formatCPF(employee.cpf), password: "" });
+      setForm({
+        full_name: employee.full_name,
+        email: employee.email || "",
+        cpf: formatCPF(employee.cpf),
+        password: "",
+        cargo: employee.cargo || "caixa",
+        description: employee.description || "",
+      });
 
       // Load permissions
       const { data: perms } = await supabase
@@ -91,8 +109,8 @@ const EmployeeForm = () => {
   };
 
   const handleCreate = async () => {
-    if (!form.full_name.trim() || !form.cpf.trim() || !form.password.trim()) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" });
+    if (!form.full_name.trim() || !form.email.trim() || !form.cpf.trim() || !form.password.trim()) {
+      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;
     }
     if (form.password.length < 6) {
@@ -106,8 +124,11 @@ const EmployeeForm = () => {
       const { data, error } = await supabase.functions.invoke("create-employee", {
         body: {
           full_name: form.full_name,
+          email: form.email,
           cpf: form.cpf.replace(/\D/g, ""),
           password: form.password,
+          cargo: form.cargo,
+          description: form.description || null,
           permissions: permsArray,
         },
       });
@@ -127,6 +148,12 @@ const EmployeeForm = () => {
   const handleUpdate = async () => {
     setIsSaving(true);
     try {
+      // Update cargo and description
+      await supabase
+        .from("employees" as any)
+        .update({ cargo: form.cargo, description: form.description || null } as any)
+        .eq("id", id);
+
       // Delete existing permissions and re-insert
       await supabase
         .from("employee_permissions" as any)
@@ -142,13 +169,19 @@ const EmployeeForm = () => {
       const { error } = await supabase.from("employee_permissions" as any).insert(rows);
       if (error) throw error;
 
-      toast({ title: "Permissões atualizadas!" });
+      toast({ title: "Funcionário atualizado!" });
       navigate("/funcionarios");
     } catch (err: any) {
-      toast({ title: "Erro ao salvar permissões", variant: "destructive" });
+      toast({ title: "Erro ao salvar", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSelectAll = (value: boolean) => {
+    const updated: Record<string, boolean> = {};
+    PERMISSION_GROUPS.forEach((g) => g.permissions.forEach((p) => { updated[p.key] = value; }));
+    setPermissions(updated);
   };
 
   if (loading) {
@@ -172,60 +205,106 @@ const EmployeeForm = () => {
             {isEditing ? `Editar - ${employeeName}` : "Novo Funcionário"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {isEditing ? "Edite as permissões do funcionário" : "Preencha os dados e defina as permissões"}
+            {isEditing ? "Edite o cargo, descrição e permissões" : "Preencha os dados e defina as permissões"}
           </p>
         </div>
       </div>
 
-      {/* Form fields - only show for new employee */}
-      {!isEditing && (
-        <Card>
-          <CardContent className="space-y-4 pt-6">
-            <div className="space-y-2">
-              <Label>Nome Completo *</Label>
-              <Input
-                value={form.full_name}
-                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                placeholder="Nome do funcionário"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>CPF *</Label>
-              <Input
-                value={form.cpf}
-                onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })}
-                placeholder="000.000.000-00"
-                inputMode="numeric"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Senha *</Label>
-              <div className="relative">
+      {/* Form fields */}
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          {!isEditing && (
+            <>
+              <div className="space-y-2">
+                <Label>Nome Completo *</Label>
                 <Input
-                  type={showPassword ? "text" : "password"}
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Mínimo 6 caracteres"
+                  value={form.full_name}
+                  onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                  placeholder="Nome do funcionário"
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              <div className="space-y-2">
+                <Label>E-mail *</Label>
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="email@exemplo.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>CPF *</Label>
+                <Input
+                  value={form.cpf}
+                  onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })}
+                  placeholder="000.000.000-00"
+                  inputMode="numeric"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Senha *</Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="space-y-2">
+            <Label>Cargo *</Label>
+            <Select value={form.cargo} onValueChange={(v) => setForm({ ...form, cargo: v })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o cargo" />
+              </SelectTrigger>
+              <SelectContent>
+                {CARGO_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Descrição <span className="text-muted-foreground">(opcional)</span></Label>
+            <Textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Observações sobre o funcionário..."
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Permissions */}
       <Card>
         <CardContent className="space-y-6 pt-6">
-          <h2 className="text-lg font-semibold">Permissões</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Permissões</h2>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => handleSelectAll(true)}>
+                Marcar Tudo
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleSelectAll(false)}>
+                Desmarcar Tudo
+              </Button>
+            </div>
+          </div>
+
           {PERMISSION_GROUPS.map((group) => (
             <div key={group.label}>
               <h3 className="font-semibold text-sm mb-3 text-primary">{group.label}</h3>
@@ -251,7 +330,7 @@ const EmployeeForm = () => {
         disabled={isSaving}
       >
         <Save className="h-4 w-4 mr-2" />
-        {isSaving ? "Salvando..." : isEditing ? "Salvar Permissões" : "Criar Funcionário"}
+        {isSaving ? "Salvando..." : isEditing ? "Salvar Alterações" : "Criar Funcionário"}
       </Button>
     </div>
   );

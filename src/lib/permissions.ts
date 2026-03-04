@@ -35,6 +35,12 @@ export const PERMISSION_KEYS = {
 
   // Weekly Redemption
   access_redemption: "access_redemption",
+
+  // Employees
+  access_employees: "access_employees",
+
+  // Auri Chat
+  access_auri: "access_auri",
 } as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[keyof typeof PERMISSION_KEYS];
@@ -77,13 +83,19 @@ export const PERMISSION_GROUPS = [
   {
     label: "Histórico",
     permissions: [
-      { key: PERMISSION_KEYS.access_history, label: "Acessar aba Histórico" },
+      { key: PERMISSION_KEYS.access_history, label: "Acessar aba Histórico de Vendas" },
     ],
   },
   {
     label: "Relatórios",
     permissions: [
       { key: PERMISSION_KEYS.access_reports, label: "Acessar aba Relatórios" },
+    ],
+  },
+  {
+    label: "Funcionários",
+    permissions: [
+      { key: PERMISSION_KEYS.access_employees, label: "Visualizar Funcionários" },
     ],
   },
   {
@@ -104,6 +116,12 @@ export const PERMISSION_GROUPS = [
       { key: PERMISSION_KEYS.access_redemption, label: "Acessar Resgate Semanal" },
     ],
   },
+  {
+    label: "Assistente Auri",
+    permissions: [
+      { key: PERMISSION_KEYS.access_auri, label: "Acessar Assistente Auri" },
+    ],
+  },
 ];
 
 // Map routes to required permissions
@@ -122,9 +140,11 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   "/fornecedores/editar": PERMISSION_KEYS.edit_supplier,
   "/historico": PERMISSION_KEYS.access_history,
   "/relatorios": PERMISSION_KEYS.access_reports,
+  "/funcionarios": PERMISSION_KEYS.access_employees,
   "/configuracoes": PERMISSION_KEYS.access_settings,
   "/assinatura": PERMISSION_KEYS.access_subscription,
   "/resgate-semanal": PERMISSION_KEYS.access_redemption,
+  "/auri": PERMISSION_KEYS.access_auri,
 };
 
 // Map quick action paths to required permissions
@@ -148,6 +168,7 @@ export const MENU_PERMISSIONS: Record<string, PermissionKey> = {
   "/fornecedores": PERMISSION_KEYS.access_suppliers,
   "/historico": PERMISSION_KEYS.access_history,
   "/relatorios": PERMISSION_KEYS.access_reports,
+  "/funcionarios": PERMISSION_KEYS.access_employees,
   "/configuracoes": PERMISSION_KEYS.access_settings,
   "/assinatura": PERMISSION_KEYS.access_subscription,
   "/resgate-semanal": PERMISSION_KEYS.access_redemption,
