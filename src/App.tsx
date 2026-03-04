@@ -13,6 +13,8 @@ import Subscription from "./pages/Subscription";
 import Products from "./pages/Products";
 import ProductForm from "./pages/ProductForm";
 import POS from "./pages/POS";
+import POSProductSelect from "./pages/POSProductSelect";
+import POSCustomerSelect from "./pages/POSCustomerSelect";
 import Customers from "./pages/Customers";
 import CustomerForm from "./pages/CustomerForm";
 import Reports from "./pages/Reports";
@@ -48,6 +50,8 @@ const App = () => (
             <Route path="/produtos/novo" element={<ProductForm />} />
             <Route path="/produtos/editar/:id" element={<ProductForm />} />
             <Route path="/pdv" element={<POS />} />
+            <Route path="/pdv/produtos" element={<POSProductSelect />} />
+            <Route path="/pdv/clientes" element={<POSCustomerSelect />} />
             <Route path="/clientes" element={<Customers />} />
             <Route path="/clientes/novo" element={<CustomerForm />} />
             <Route path="/clientes/editar/:id" element={<CustomerForm />} />
