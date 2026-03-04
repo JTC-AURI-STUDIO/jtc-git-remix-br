@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import PageLoader from "@/components/PageLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ interface Transaction {
 }
 
 const Customers = () => {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -293,73 +295,10 @@ const Customers = () => {
           </h1>
           <p className="text-muted-foreground">Gerencie seus clientes e saldos</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:scale-[1.02]">
-              <UserPlus className="w-4 h-4" />
-              Cadastrar Cliente
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">Novo Cliente</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Nome do Cliente</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  className="transition-all focus:shadow-md"
-                />
-              </div>
-              <div>
-                <Label htmlFor="cpf">CPF *</Label>
-                <Input
-                  id="cpf"
-                  value={formData.cpf}
-                  onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                  required
-                  className="transition-all focus:shadow-md"
-                />
-              </div>
-              <div>
-                <Label htmlFor="birth_date">Data de Nascimento</Label>
-                <Input
-                  id="birth_date"
-                  type="date"
-                  value={formData.birth_date}
-                  onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
-                  className="transition-all focus:shadow-md"
-                />
-              </div>
-              <div>
-                <Label htmlFor="address">Endereço *</Label>
-                <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  required
-                  className="transition-all focus:shadow-md"
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Telefone</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="transition-all focus:shadow-md"
-                />
-              </div>
-              <Button type="submit" className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
-                Cadastrar
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => navigate("/clientes/novo")} className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:scale-[1.02]">
+          <UserPlus className="w-4 h-4" />
+          Cadastrar Cliente
+        </Button>
       </div>
 
       {selectedCustomer ? (
@@ -569,17 +508,7 @@ const Customers = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => {
-                        setSelectedCustomer(customer);
-                        setFormData({
-                          name: customer.name,
-                          cpf: customer.cpf,
-                          birth_date: customer.birth_date || "",
-                          address: customer.address,
-                          phone: customer.phone || "",
-                        });
-                        setIsEditDialogOpen(true);
-                      }}
+                      onClick={() => navigate(`/clientes/editar/${customer.id}`)}
                     >
                       <Pencil className="w-4 h-4" />
                     </Button>
@@ -663,83 +592,6 @@ const Customers = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Editar Cliente</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={async (e) => {
-            e.preventDefault();
-            if (!selectedCustomer) return;
-
-            const { error } = await supabase
-              .from("customers")
-              .update({
-                name: formData.name,
-                cpf: formData.cpf,
-                birth_date: formData.birth_date || null,
-                address: formData.address,
-                phone: formData.phone || null,
-              })
-              .eq("id", selectedCustomer.id);
-
-            if (error) {
-              toast({ title: "Erro ao atualizar cliente", variant: "destructive" });
-              return;
-            }
-
-            toast({ title: "Cliente atualizado com sucesso!" });
-            setIsEditDialogOpen(false);
-            fetchCustomers();
-          }} className="space-y-4">
-            <div>
-              <Label htmlFor="edit-name">Nome do Cliente</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-cpf">CPF</Label>
-              <Input
-                id="edit-cpf"
-                value={formData.cpf}
-                onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-birth_date">Data de Nascimento</Label>
-              <Input
-                id="edit-birth_date"
-                type="date"
-                value={formData.birth_date}
-                onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-address">Endereço</Label>
-              <Input
-                id="edit-address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-phone">Telefone</Label>
-              <Input
-                id="edit-phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
-            <Button type="submit" className="w-full">Atualizar</Button>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
     </PageLoader>
   );

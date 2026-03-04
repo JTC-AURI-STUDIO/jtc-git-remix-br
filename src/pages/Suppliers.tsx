@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import PageLoader from "@/components/PageLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Search, Truck } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -25,6 +22,7 @@ interface Supplier {
 }
 
 const Suppliers = () => {
+  const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -228,113 +226,10 @@ const Suppliers = () => {
           </h1>
           <p className="text-muted-foreground">Gerencie seus fornecedores</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => { setEditingSupplier(null); resetForm(); setIsDialogOpen(true); }} className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:scale-[1.02]">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Fornecedor
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingSupplier ? "Editar Fornecedor" : "Novo Fornecedor"}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome *</Label>
-                <Input
-                  id="name"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Nome do fornecedor"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Tipo de Documento</Label>
-                <Select
-                  value={form.documentType}
-                  onValueChange={(value: "cpf" | "cnpj") => handleDocumentTypeChange(value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cpf">CPF</SelectItem>
-                    <SelectItem value="cnpj">CNPJ</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="document">{form.documentType === "cpf" ? "CPF" : "CNPJ"}</Label>
-                <Input
-                  id="document"
-                  value={form.document}
-                  onChange={(e) => setForm({ ...form, document: formatDocument(e.target.value) })}
-                  placeholder={form.documentType === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"}
-                  inputMode="numeric"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefone</Label>
-                <Input
-                  id="phone"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })}
-                  placeholder="(00) 00000-0000"
-                  inputMode="numeric"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="email@fornecedor.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contact_person">Pessoa de Contato</Label>
-                <Input
-                  id="contact_person"
-                  value={form.contact_person}
-                  onChange={(e) => setForm({ ...form, contact_person: e.target.value })}
-                  placeholder="Nome do contato"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address">Endereço</Label>
-                <Input
-                  id="address"
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  placeholder="Endereço completo"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Observações</Label>
-                <Textarea
-                  id="notes"
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  placeholder="Observações sobre o fornecedor"
-                />
-              </div>
-
-              <Button onClick={handleSave} className="w-full" disabled={isSaving}>
-                {isSaving ? "Salvando..." : (editingSupplier ? "Atualizar" : "Criar")}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => navigate("/fornecedores/novo")} className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:scale-[1.02]">
+          <Plus className="mr-2 h-4 w-4" />
+          Novo Fornecedor
+        </Button>
       </div>
 
       <div className="flex gap-4">
@@ -373,7 +268,7 @@ const Suppliers = () => {
                   <TableCell className="truncate">{supplier.phone || "-"}</TableCell>
                   <TableCell className="truncate">{supplier.contact_person || "-"}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => startEdit(supplier)} className="opacity-70 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" onClick={() => navigate(`/fornecedores/editar/${supplier.id}`)} className="opacity-70 group-hover:opacity-100 transition-opacity">
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(supplier.id)} className="opacity-70 group-hover:opacity-100 transition-opacity">
