@@ -92,7 +92,13 @@ export const signIn = async (identifier: string, password: string) => {
     password,
   });
 
-  if (error) throw error;
+  if (error) {
+    // Supabase pode retornar "Email not confirmed" diretamente
+    if (error.message?.toLowerCase().includes("email not confirmed")) {
+      throw new Error("email_not_confirmed");
+    }
+    throw error;
+  }
 
   // Garante que o usuário só consiga entrar após confirmar o e-mail.
   // (Em alguns cenários/configurações o backend pode retornar sessão mesmo sem confirmação.)
