@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.jtc_flux_pdv.twa",
+    "sha256_cert_fingerprints": [
+      "81:F9:37:4E:51:74:13:1A:F6:AA:7B:8D:56:50:ED:24:7D:06:9B:09:AE:13:EE:5B:E0:8F:4F:FF:90:BD:E8:41"
+    ]
+  }
+}]
