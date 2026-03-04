@@ -53,7 +53,7 @@ serve(async (req) => {
       });
     }
 
-    const accessToken = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN');
+    const accessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
     if (!accessToken) {
       console.error('MERCADO_PAGO_ACCESS_TOKEN not configured');
       return new Response(JSON.stringify({ error: 'Configuração de pagamento não encontrada' }), {
