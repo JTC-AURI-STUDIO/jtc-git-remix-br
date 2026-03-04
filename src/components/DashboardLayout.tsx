@@ -20,7 +20,11 @@ import {
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import logo from "@/assets/logo.jpg";
+import { useSubscription } from "@/hooks/useSubscription";
+import { SubscriptionBlocker } from "@/components/SubscriptionBlocker";
 
+// Rotas permitidas mesmo com assinatura expirada
+const ALLOWED_WHEN_EXPIRED = ["/dashboard", "/configuracoes", "/assinatura"];
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
@@ -29,6 +33,7 @@ const DashboardLayout = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { isExpired, isTrial } = useSubscription();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -176,7 +181,11 @@ const DashboardLayout = () => {
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="p-4 md:p-8 w-full max-w-full overflow-hidden"
         >
-          <Outlet />
+          {isExpired && !ALLOWED_WHEN_EXPIRED.includes(location.pathname) ? (
+            <SubscriptionBlocker isTrial={isTrial} />
+          ) : (
+            <Outlet />
+          )}
         </motion.div>
       </main>
 
