@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Navigate } from "react-router-dom";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
-import { ChevronLeft, Eye, EyeOff, Save } from "lucide-react";
+import { ChevronLeft, Eye, EyeOff, Save, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import PageLoader from "@/components/PageLoader";
 
 const CARGO_OPTIONS = [
@@ -47,6 +47,90 @@ const EmployeeForm = () => {
     PERMISSION_GROUPS.forEach((g) => g.permissions.forEach((p) => { initial[p.key] = false; }));
     return initial;
   });
+
+  // Real-time validation
+  const [cpfStatus, setCpfStatus] = useState<{ checking: boolean; available: boolean | null; reason: string }>({ checking: false, available: null, reason: "" });
+  const [emailStatus, setEmailStatus] = useState<{ checking: boolean; available: boolean | null; reason: string }>({ checking: false, available: null, reason: "" });
+
+  const ALLOWED_EMAIL_DOMAINS = ["gmail.com", "hotmail.com", "outlook.com", "outlook.com.br", "hotmail.com.br", "live.com"];
+
+  const validateEmailDomain = (email: string): string | null => {
+    if (!email.includes("@")) return null;
+    const domain = email.split("@")[1]?.toLowerCase();
+    if (!domain) return null;
+    if (!ALLOWED_EMAIL_DOMAINS.includes(domain)) {
+      return "Apenas e-mails Gmail, Hotmail e Outlook são aceitos";
+    }
+    return null;
+  };
+
+  const checkCpfAvailability = useCallback(async (cpf: string) => {
+    const clean = cpf.replace(/\D/g, "");
+    if (clean.length !== 11) {
+      setCpfStatus({ checking: false, available: null, reason: "" });
+      return;
+    }
+    setCpfStatus({ checking: true, available: null, reason: "" });
+    try {
+      const { data, error } = await (supabase.rpc as any)("check_cpf_available_for_employee", { check_cpf: clean });
+      if (error) throw error;
+      if (data && data.length > 0) {
+        setCpfStatus({ checking: false, available: data[0].available, reason: data[0].reason || "" });
+      }
+    } catch {
+      setCpfStatus({ checking: false, available: null, reason: "" });
+    }
+  }, []);
+
+  const checkEmailAvailability = useCallback(async (email: string) => {
+    const domainError = validateEmailDomain(email);
+    if (domainError) {
+      setEmailStatus({ checking: false, available: false, reason: domainError });
+      return;
+    }
+    if (!email.includes("@") || email.length < 5) {
+      setEmailStatus({ checking: false, available: null, reason: "" });
+      return;
+    }
+    setEmailStatus({ checking: true, available: null, reason: "" });
+    try {
+      const { data, error } = await (supabase.rpc as any)("check_email_available_for_employee", { check_email: email });
+      if (error) throw error;
+      if (data && data.length > 0) {
+        setEmailStatus({ checking: false, available: data[0].available, reason: data[0].available ? "" : "Este e-mail já está cadastrado no sistema" });
+      }
+    } catch {
+      setEmailStatus({ checking: false, available: null, reason: "" });
+    }
+  }, []);
+
+  // Debounce CPF check
+  useEffect(() => {
+    if (isEditing) return;
+    const clean = form.cpf.replace(/\D/g, "");
+    if (clean.length !== 11) {
+      setCpfStatus({ checking: false, available: null, reason: "" });
+      return;
+    }
+    const timer = setTimeout(() => checkCpfAvailability(form.cpf), 500);
+    return () => clearTimeout(timer);
+  }, [form.cpf, isEditing]);
+
+  // Debounce email check
+  useEffect(() => {
+    if (isEditing) return;
+    if (!form.email || !form.email.includes("@")) {
+      setEmailStatus({ checking: false, available: null, reason: "" });
+      return;
+    }
+    const domainError = validateEmailDomain(form.email);
+    if (domainError) {
+      setEmailStatus({ checking: false, available: false, reason: domainError });
+      return;
+    }
+    const timer = setTimeout(() => checkEmailAvailability(form.email), 500);
+    return () => clearTimeout(timer);
+  }, [form.email, isEditing]);
 
   useEffect(() => {
     if (isEditing) {
@@ -115,6 +199,19 @@ const EmployeeForm = () => {
     }
     if (form.password.length < 6) {
       toast({ title: "A senha deve ter pelo menos 6 caracteres", variant: "destructive" });
+      return;
+    }
+    if (cpfStatus.available === false) {
+      toast({ title: cpfStatus.reason || "CPF não disponível", variant: "destructive" });
+      return;
+    }
+    if (emailStatus.available === false) {
+      toast({ title: emailStatus.reason || "E-mail não disponível", variant: "destructive" });
+      return;
+    }
+    const domainError = validateEmailDomain(form.email);
+    if (domainError) {
+      toast({ title: domainError, variant: "destructive" });
       return;
     }
 
@@ -224,22 +321,46 @@ const EmployeeForm = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>E-mail *</Label>
-                <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="email@exemplo.com"
-                />
+                <Label>E-mail * <span className="text-xs text-muted-foreground font-normal">(Gmail, Hotmail ou Outlook)</span></Label>
+                <div className="relative">
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    placeholder="email@gmail.com"
+                    className={emailStatus.available === true ? "border-green-500 pr-10" : emailStatus.available === false ? "border-destructive pr-10" : ""}
+                  />
+                  {emailStatus.checking && <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />}
+                  {!emailStatus.checking && emailStatus.available === true && <CheckCircle2 className="absolute right-3 top-2.5 h-4 w-4 text-green-500" />}
+                  {!emailStatus.checking && emailStatus.available === false && <XCircle className="absolute right-3 top-2.5 h-4 w-4 text-destructive" />}
+                </div>
+                {emailStatus.available === false && emailStatus.reason && (
+                  <p className="text-xs text-destructive">{emailStatus.reason}</p>
+                )}
+                {emailStatus.available === true && (
+                  <p className="text-xs text-green-500">E-mail disponível</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>CPF *</Label>
-                <Input
-                  value={form.cpf}
-                  onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })}
-                  placeholder="000.000.000-00"
-                  inputMode="numeric"
-                />
+                <div className="relative">
+                  <Input
+                    value={form.cpf}
+                    onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })}
+                    placeholder="000.000.000-00"
+                    inputMode="numeric"
+                    className={cpfStatus.available === true ? "border-green-500 pr-10" : cpfStatus.available === false ? "border-destructive pr-10" : ""}
+                  />
+                  {cpfStatus.checking && <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />}
+                  {!cpfStatus.checking && cpfStatus.available === true && <CheckCircle2 className="absolute right-3 top-2.5 h-4 w-4 text-green-500" />}
+                  {!cpfStatus.checking && cpfStatus.available === false && <XCircle className="absolute right-3 top-2.5 h-4 w-4 text-destructive" />}
+                </div>
+                {cpfStatus.available === false && cpfStatus.reason && (
+                  <p className="text-xs text-destructive">{cpfStatus.reason}</p>
+                )}
+                {cpfStatus.available === true && (
+                  <p className="text-xs text-green-500">CPF disponível</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Senha *</Label>
