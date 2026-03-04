@@ -343,7 +343,7 @@ const Settings = () => {
       <div className="grid gap-4 md:gap-6 w-full max-w-2xl">
         {/* Informações da Loja */}
         <Card className="overflow-hidden">
-          <Collapsible open={openSection === 'storeInfo'} onOpenChange={() => toggleSection('storeInfo')}>
+          <Collapsible open={openSection === 'storeInfo'}>
             <CardHeader className="cursor-pointer" onClick={() => toggleSection('storeInfo')}>
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
@@ -463,7 +463,7 @@ const Settings = () => {
 
         {/* Configuração PIX */}
         <Card className="overflow-hidden">
-          <Collapsible open={openSection === 'pixConfig'} onOpenChange={() => toggleSection('pixConfig')}>
+          <Collapsible open={openSection === 'pixConfig'}>
             <CardHeader className="cursor-pointer" onClick={() => toggleSection('pixConfig')}>
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
@@ -687,7 +687,7 @@ const Settings = () => {
 
         {/* Ações Rápidas */}
         <Card className="overflow-hidden">
-          <Collapsible open={openSection === 'quickActions'} onOpenChange={() => toggleSection('quickActions')}>
+          <Collapsible open={openSection === 'quickActions'}>
             <CardHeader className="cursor-pointer" onClick={() => toggleSection('quickActions')}>
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
@@ -737,7 +737,7 @@ const Settings = () => {
 
         {/* Meu Código de Convite */}
         <Card className="border-accent/30 bg-accent/5 overflow-hidden">
-          <Collapsible open={openSection === 'inviteCode'} onOpenChange={() => toggleSection('inviteCode')}>
+          <Collapsible open={openSection === 'inviteCode'}>
             <CardHeader className="cursor-pointer" onClick={() => toggleSection('inviteCode')}>
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
@@ -811,7 +811,7 @@ const Settings = () => {
 
         {/* Baixar App */}
         <Card className="border-primary/30 bg-primary/5 overflow-hidden">
-          <Collapsible open={openSection === 'downloadApp'} onOpenChange={() => toggleSection('downloadApp')}>
+          <Collapsible open={openSection === 'downloadApp'}>
             <CardHeader className="cursor-pointer" onClick={() => toggleSection('downloadApp')}>
               <CollapsibleTrigger asChild>
                 <div className="flex items-center justify-between w-full gap-2">
