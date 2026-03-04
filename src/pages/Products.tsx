@@ -85,6 +85,9 @@ const Products = () => {
     parent_id: "",
   });
 
+  const isMissingTableError = (error: any) =>
+    error?.code === "PGRST205" || error?.code === "42P01";
+
   const fetchProducts = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -96,6 +99,10 @@ const Products = () => {
       .order("created_at", { ascending: false });
 
     if (error) {
+      if (isMissingTableError(error)) {
+        setProducts([]);
+        return;
+      }
       toast({ title: "Erro ao carregar produtos", variant: "destructive" });
     } else {
       const mappedProducts: Product[] = (data || []).map((p: any) => ({
@@ -126,6 +133,10 @@ const Products = () => {
       .order("name");
 
     if (error) {
+      if (isMissingTableError(error)) {
+        setCategories([]);
+        return;
+      }
       toast({ title: "Erro ao carregar categorias", variant: "destructive" });
     } else {
       setCategories(data || []);
@@ -143,6 +154,10 @@ const Products = () => {
       .order("name");
 
     if (error) {
+      if (isMissingTableError(error)) {
+        setSuppliers([]);
+        return;
+      }
       toast({ title: "Erro ao carregar fornecedores", variant: "destructive" });
     } else {
       setSuppliers(data || []);

@@ -65,6 +65,9 @@ const Customers = () => {
     loadCustomers();
   }, []);
 
+  const isMissingTableError = (error: any) =>
+    error?.code === "PGRST205" || error?.code === "42P01";
+
   const fetchCustomers = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -76,6 +79,10 @@ const Customers = () => {
       .order("name");
 
     if (error) {
+      if (isMissingTableError(error)) {
+        setCustomers([]);
+        return;
+      }
       toast({ title: "Erro ao carregar clientes", variant: "destructive" });
       return;
     }
@@ -91,6 +98,10 @@ const Customers = () => {
       .order("created_at", { ascending: false });
 
     if (error) {
+      if (isMissingTableError(error)) {
+        setTransactions([]);
+        return;
+      }
       toast({ title: "Erro ao carregar transações", variant: "destructive" });
       return;
     }

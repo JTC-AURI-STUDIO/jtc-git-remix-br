@@ -80,6 +80,9 @@ const Reports = () => {
     return null;
   };
 
+  const isMissingTableError = (error: any) =>
+    error?.code === "PGRST205" || error?.code === "42P01";
+
   const fetchSalesData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -106,6 +109,11 @@ const Reports = () => {
     const { data: salesData, error: salesError } = await query;
 
     if (salesError) {
+      if (isMissingTableError(salesError)) {
+        setSales([]);
+        setProductSales([]);
+        return;
+      }
       toast({ title: "Erro ao carregar vendas", variant: "destructive" });
       return;
     }
