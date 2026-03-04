@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, createContext, useContext } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PermissionKey } from "@/lib/permissions";
 
@@ -13,119 +13,132 @@ interface PermissionsState {
 }
 
 const PermissionsContext = createContext<PermissionsState>({
-  isAdmin: true,
+  isAdmin: false,
   isEmployee: false,
   adminId: null,
   permissions: {},
   loading: true,
-  hasPermission: () => true,
+  hasPermission: () => false,
   getEffectiveUserId: () => null,
 });
 
 export const usePermissions = () => useContext(PermissionsContext);
 
 export function PermissionsProvider({ children, userId }: { children: React.ReactNode; userId: string | null }) {
-  const [isAdmin, setIsAdmin] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isEmployee, setIsEmployee] = useState(false);
   const [adminId, setAdminId] = useState<string | null>(null);
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const employeeIdRef = useRef<string | null>(null);
 
-  // Reusable function to reload permissions for the current employee
+  const resetToNoAccess = useCallback(() => {
+    setIsAdmin(false);
+    setIsEmployee(false);
+    setAdminId(null);
+    setEmployeeId(null);
+    setPermissions({});
+  }, []);
+
   const reloadEmployeePermissions = useCallback(async (empId: string) => {
-    const { data: perms } = await supabase
+    const { data: perms, error } = await supabase
       .from("employee_permissions" as any)
       .select("permission_key, allowed")
       .eq("employee_id", empId);
 
-    const permMap: Record<string, boolean> = {};
-    if (perms) {
-      (perms as any[]).forEach((p) => {
-        permMap[p.permission_key] = p.allowed;
-      });
+    if (error) {
+      console.error("Error loading employee permissions:", error);
+      setPermissions({});
+      return;
     }
+
+    const permMap: Record<string, boolean> = {};
+    (perms as any[] | null)?.forEach((p) => {
+      permMap[p.permission_key] = p.allowed;
+    });
     setPermissions(permMap);
   }, []);
 
-  useEffect(() => {
+  const loadPermissions = useCallback(async () => {
     if (!userId) {
+      resetToNoAccess();
       setLoading(false);
       return;
     }
 
-    const loadPermissions = async () => {
-      try {
-        // 1) Sempre priorizar vínculo de funcionário
-        const { data: employee } = await supabase
-          .from("employees" as any)
-          .select("id, admin_id, is_active")
-          .eq("user_id", userId)
-          .eq("is_active", true)
-          .maybeSingle();
+    setLoading(true);
 
-        if (employee) {
-          const emp = employee as any;
-          employeeIdRef.current = emp.id;
-          setIsAdmin(false);
-          setIsEmployee(true);
-          setAdminId(emp.admin_id);
-          await reloadEmployeePermissions(emp.id);
-          setLoading(false);
-          return;
-        }
+    try {
+      // Funcionário sempre tem prioridade sobre role legada
+      const { data: employee, error: employeeError } = await supabase
+        .from("employees" as any)
+        .select("id, admin_id")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .maybeSingle();
 
-        employeeIdRef.current = null;
-
-        // 2) Sem vínculo de funcionário, verificar role admin
-        const { data: adminRole } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userId)
-          .eq("role", "admin")
-          .maybeSingle();
-
-        if (adminRole) {
-          setIsAdmin(true);
-          setIsEmployee(false);
-          setAdminId(null);
-          setPermissions({});
-        } else {
-          setIsAdmin(true);
-          setIsEmployee(false);
-          setAdminId(null);
-          setPermissions({});
-        }
-      } catch (err) {
-        console.error("Error loading permissions:", err);
-        setIsAdmin(true);
-      } finally {
-        setLoading(false);
+      if (employeeError) {
+        console.error("Error loading employee link:", employeeError);
+        resetToNoAccess();
+        return;
       }
-    };
 
-    loadPermissions();
-  }, [userId, reloadEmployeePermissions]);
+      if (employee) {
+        const emp = employee as any;
+        setIsAdmin(false);
+        setIsEmployee(true);
+        setAdminId(emp.admin_id);
+        setEmployeeId(emp.id);
+        await reloadEmployeePermissions(emp.id);
+        return;
+      }
 
-  // Realtime subscription: reload permissions whenever employee_permissions changes
+      const { data: adminRole, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (roleError) {
+        console.error("Error loading admin role:", roleError);
+        resetToNoAccess();
+        return;
+      }
+
+      setIsAdmin(!!adminRole);
+      setIsEmployee(false);
+      setAdminId(null);
+      setEmployeeId(null);
+      setPermissions({});
+    } catch (err) {
+      console.error("Error loading permissions:", err);
+      resetToNoAccess();
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, reloadEmployeePermissions, resetToNoAccess]);
+
   useEffect(() => {
-    if (!employeeIdRef.current) return;
+    loadPermissions();
+  }, [loadPermissions]);
 
-    const empId = employeeIdRef.current;
+  // Realtime: sempre que permissões do funcionário mudarem, recarrega imediatamente
+  useEffect(() => {
+    if (!employeeId) return;
 
     const channel = supabase
-      .channel(`employee-perms-${empId}`)
+      .channel(`employee-perms-${employeeId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "employee_permissions",
-          filter: `employee_id=eq.${empId}`,
+          filter: `employee_id=eq.${employeeId}`,
         },
         () => {
-          // Any INSERT/UPDATE/DELETE on this employee's permissions → reload
-          reloadEmployeePermissions(empId);
+          reloadEmployeePermissions(employeeId);
         }
       )
       .subscribe();
@@ -133,7 +146,7 @@ export function PermissionsProvider({ children, userId }: { children: React.Reac
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isEmployee, reloadEmployeePermissions]);
+  }, [employeeId, reloadEmployeePermissions]);
 
   const hasPermission = useCallback(
     (key: PermissionKey): boolean => {
