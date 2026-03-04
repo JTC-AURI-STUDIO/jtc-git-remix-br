@@ -704,18 +704,7 @@ const Auth = () => {
                       </div>
                     </div>
 
-                    {authError && (
-                      <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/30 animate-fade-in">
-                        <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-destructive">Atenção</p>
-                          <p className="text-sm text-destructive/80 mt-0.5">{authError}</p>
-                        </div>
-                        <button onClick={() => setAuthError(null)} className="text-destructive/60 hover:text-destructive transition-colors">
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
+                    {/* Errors shown via modal */}
 
                     <Button
                       type="submit"
@@ -962,18 +951,7 @@ const Auth = () => {
                       </div>
                     )}
 
-                    {authError && (
-                      <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/30 animate-fade-in mt-4">
-                        <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-destructive">Atenção</p>
-                          <p className="text-sm text-destructive/80 mt-0.5">{authError}</p>
-                        </div>
-                        <button onClick={() => setAuthError(null)} className="text-destructive/60 hover:text-destructive transition-colors">
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
+                    {/* Errors shown via modal */}
 
                     <Button
                       type="button"
@@ -1092,18 +1070,7 @@ const Auth = () => {
                       </div>
                     </div>
 
-                    {authError && (
-                      <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/30 animate-fade-in">
-                        <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-destructive">Atenção</p>
-                          <p className="text-sm text-destructive/80 mt-0.5">{authError}</p>
-                        </div>
-                        <button onClick={() => setAuthError(null)} className="text-destructive/60 hover:text-destructive transition-colors">
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
+                    {/* Errors shown via modal */}
 
                     <div className="flex gap-3 mt-6">
                       <Button type="button" variant="outline" onClick={handlePreviousStep} className="flex-1 h-14 rounded-xl border-border/50 hover:bg-muted/50" disabled={isLoading}>
@@ -1187,18 +1154,7 @@ const Auth = () => {
                       </div>
                     )}
 
-                    {authError && (
-                      <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/30 animate-fade-in">
-                        <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-destructive">Atenção</p>
-                          <p className="text-sm text-destructive/80 mt-0.5">{authError}</p>
-                        </div>
-                        <button onClick={() => setAuthError(null)} className="text-destructive/60 hover:text-destructive transition-colors">
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
+                    {/* Errors shown via modal */}
 
                     <div className="flex gap-3 mt-8">
                       <Button type="button" variant="outline" onClick={handlePreviousStep} className="flex-1 h-14 rounded-xl border-border/50 hover:bg-muted/50" disabled={isLoading}>
@@ -1367,6 +1323,33 @@ const Auth = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de erro */}
+      <AlertDialog open={!!authError} onOpenChange={(open) => { if (!open) setAuthError(null); }}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <div className="flex flex-col items-center gap-3 mb-2">
+              <div className="w-16 h-16 rounded-full bg-destructive/15 flex items-center justify-center">
+                <AlertTriangle className="h-8 w-8 text-destructive" />
+              </div>
+              <AlertDialogTitle className="text-center text-lg">
+                Ops! Algo deu errado
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-center text-base leading-relaxed">
+              {authError}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="justify-center sm:justify-center">
+            <AlertDialogAction
+              onClick={() => setAuthError(null)}
+              className="w-full bg-primary hover:bg-primary/90 rounded-xl h-12 text-base font-semibold"
+            >
+              Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog conta bloqueada */}
       <AlertDialog open={showBlockedAccountDialog} onOpenChange={setShowBlockedAccountDialog}>
