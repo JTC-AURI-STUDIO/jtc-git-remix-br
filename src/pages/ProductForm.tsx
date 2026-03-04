@@ -49,6 +49,8 @@ const ProductForm = () => {
     hasSupplier: false,
     supplier_id: "",
     product_type: "unidade" as "peso" | "unidade" | "servico",
+    hasStock: true,
+    hasBarcode: true,
   });
 
   const isMissingTableError = (error: any) =>
@@ -101,6 +103,8 @@ const ProductForm = () => {
         hasSupplier: !!product.supplier_id,
         supplier_id: product.supplier_id || "",
         product_type: product.product_type || "unidade",
+        hasStock: product.product_type === "servico" ? (product.stock_quantity > 0) : true,
+        hasBarcode: product.product_type === "servico" ? !!product.barcode : true,
       });
     }
 
@@ -119,19 +123,22 @@ const ProductForm = () => {
 
     setIsSaving(true);
 
+    const isService = form.product_type === "servico";
+
     const productData = {
       name: form.name,
       description: form.description || null,
       cost_price: form.cost_price ? parseFloat(form.cost_price) : null,
       price: parseFloat(form.price),
       promotional_price: form.promotional_price ? parseFloat(form.promotional_price) : null,
-      stock_quantity: parseInt(form.stock_quantity) || 0,
-      barcode: form.barcode || null,
+      stock_quantity: (isService && !form.hasStock) ? 0 : (parseInt(form.stock_quantity) || 0),
+      barcode: (isService && !form.hasBarcode) ? null : (form.barcode || null),
       photos: form.photo_url ? [form.photo_url] : null,
       category_id: form.category_id || null,
       supplier_id: form.hasSupplier && form.supplier_id ? form.supplier_id : null,
       is_active: form.is_active,
       user_id: user.id,
+      product_type: form.product_type,
     };
 
     try {
@@ -194,6 +201,19 @@ const ProductForm = () => {
           </div>
         </div>
 
+        {form.product_type === "servico" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex items-center space-x-2">
+              <Switch checked={form.hasStock} onCheckedChange={(checked) => setForm({ ...form, hasStock: checked, stock_quantity: checked ? form.stock_quantity : "0" })} />
+              <Label>Tem estoque?</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch checked={form.hasBarcode} onCheckedChange={(checked) => setForm({ ...form, hasBarcode: checked, barcode: checked ? form.barcode : "" })} />
+              <Label>Tem código de barras?</Label>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Categoria</Label>
@@ -206,10 +226,12 @@ const ProductForm = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Estoque Atual *</Label>
-            <Input type="number" value={form.stock_quantity} onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })} />
-          </div>
+          {(form.product_type !== "servico" || form.hasStock) && (
+            <div className="space-y-2">
+              <Label>Estoque Atual *</Label>
+              <Input type="number" value={form.stock_quantity} onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })} />
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -233,15 +255,17 @@ const ProductForm = () => {
           <Input type="number" step="0.01" value={form.promotional_price} onChange={(e) => setForm({ ...form, promotional_price: e.target.value })} />
         </div>
 
-        <div className="space-y-2">
-          <Label>Código de Barras</Label>
-          <div className="flex gap-2">
-            <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className="flex-1" />
-            <Button type="button" variant="outline" size="icon" onClick={() => setIsBarcodeScannerOpen(true)}>
-              <Camera className="h-4 w-4" />
-            </Button>
+        {(form.product_type !== "servico" || form.hasBarcode) && (
+          <div className="space-y-2">
+            <Label>Código de Barras</Label>
+            <div className="flex gap-2">
+              <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className="flex-1" />
+              <Button type="button" variant="outline" size="icon" onClick={() => setIsBarcodeScannerOpen(true)}>
+                <Camera className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="space-y-4">
           <div className="flex items-center space-x-2">
