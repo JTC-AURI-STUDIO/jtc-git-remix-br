@@ -62,29 +62,29 @@ export const signIn = async (identifier: string, password: string) => {
   const isCPF = /^\d{11}$/.test(cleanIdentifier);
   
   if (isCPF) {
-    // Primeiro tenta buscar pelo CPF somente números (perfis principais)
-    const { data, error: rpcError } = await supabase
-      .rpc('get_user_email_by_cpf', { search_cpf: cleanIdentifier });
+    try {
+      const { data, error: rpcError } = await (supabase.rpc as any)('get_user_email_by_cpf', { search_cpf: cleanIdentifier });
 
-    let emailFromCpf: string | null = null;
+      let emailFromCpf: string | null = null;
 
-    if (!rpcError && data && data.length > 0) {
-      emailFromCpf = data[0].email;
-    } else if (originalIdentifier !== cleanIdentifier) {
-      // Se não encontrar, tenta novamente usando o CPF exatamente como foi salvo
-      const { data: dataFormatted, error: rpcErrorFormatted } = await supabase
-        .rpc('get_user_email_by_cpf', { search_cpf: originalIdentifier });
-
-      if (!rpcErrorFormatted && dataFormatted && dataFormatted.length > 0) {
-        emailFromCpf = dataFormatted[0].email;
+      if (!rpcError && data && data.length > 0) {
+        emailFromCpf = data[0].email;
+      } else if (originalIdentifier !== cleanIdentifier) {
+        const { data: dataFormatted, error: rpcErrorFormatted } = await (supabase.rpc as any)('get_user_email_by_cpf', { search_cpf: originalIdentifier });
+        if (!rpcErrorFormatted && dataFormatted && dataFormatted.length > 0) {
+          emailFromCpf = dataFormatted[0].email;
+        }
       }
-    }
 
-    if (!emailFromCpf) {
-      throw new Error("CPF não encontrado");
-    }
+      if (!emailFromCpf) {
+        throw new Error("CPF não encontrado. Verifique se digitou corretamente ou crie uma conta.");
+      }
 
-    identifier = emailFromCpf;
+      identifier = emailFromCpf;
+    } catch (err: any) {
+      if (err.message?.includes("CPF não encontrado")) throw err;
+      throw new Error("CPF não encontrado. Verifique se digitou corretamente ou crie uma conta.");
+    }
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -110,17 +110,20 @@ export const signOut = async () => {
 
 // Validar código de convite usando função segura do banco
 export const validateInviteCode = async (code: string): Promise<{ valid: boolean; alreadyUsed: boolean }> => {
-  const { data, error } = await supabase
-    .rpc('validate_invite_code', { code: code.toUpperCase() });
+  try {
+    const { data, error } = await (supabase.rpc as any)('validate_invite_code', { code: code.toUpperCase() });
 
-  if (error || !data || data.length === 0) {
-    console.error("Erro ao validar código:", error);
+    if (error || !data || data.length === 0) {
+      console.error("Erro ao validar código:", error);
+      return { valid: false, alreadyUsed: false };
+    }
+
+    const result = data[0];
+    return { 
+      valid: result.is_valid === true, 
+      alreadyUsed: result.is_already_used === true 
+    };
+  } catch {
     return { valid: false, alreadyUsed: false };
   }
-
-  const result = data[0];
-  return { 
-    valid: result.is_valid === true, 
-    alreadyUsed: result.is_already_used === true 
-  };
 };
