@@ -14,11 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      email_verifications: {
+        Row: {
+          attempts: number
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          otp_code: string
+          user_id: string
+          verified: boolean
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          otp_code: string
+          user_id: string
+          verified?: boolean
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          otp_code?: string
+          user_id?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           cpf: string
           created_at: string
           email: string
+          email_verified: boolean
           id: string
           user_id: string
         }
@@ -26,6 +60,7 @@ export type Database = {
           cpf: string
           created_at?: string
           email: string
+          email_verified?: boolean
           id?: string
           user_id: string
         }
@@ -33,6 +68,7 @@ export type Database = {
           cpf?: string
           created_at?: string
           email?: string
+          email_verified?: boolean
           id?: string
           user_id?: string
         }
