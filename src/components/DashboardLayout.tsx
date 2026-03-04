@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import logo from "@/assets/logo.jpg";
-import { AuriChat } from "@/components/AuriChat";
+
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
@@ -180,8 +180,6 @@ const DashboardLayout = () => {
         </motion.div>
       </main>
 
-      {/* Auri Chat Bot - esconde na página /auri */}
-      {location.pathname !== "/auri" && <AuriChat />}
     </div>
   );
 };
