@@ -1,0 +1,37 @@
+project_id = "vvjnizvqbegijvgrszot"
+
+[functions.validate-invite-ip]
+verify_jwt = false
+
+[functions.create-pix-payment]
+verify_jwt = true
+
+[functions.mercadopago-webhook]
+verify_jwt = false
+
+[functions.check-payment-status]
+verify_jwt = true
+
+[functions.create-store-pix-payment]
+verify_jwt = true
+
+[functions.check-store-payment-status]
+verify_jwt = true
+
+[functions.create-employee]
+verify_jwt = true
+
+[functions.delete-employee]
+verify_jwt = true
+
+[functions.auri-chat]
+verify_jwt = true
+
+[functions.create-test-user]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.send-confirmation-email]
+verify_jwt = false
