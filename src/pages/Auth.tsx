@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Gift, Eye, EyeOff, Loader2, CheckCircle2, XCircle, AlertTriangle, ChevronRight, ChevronLeft, HelpCircle, ExternalLink, ShoppingCart, Package, TrendingUp, Check, MapPin, Ticket, User } from "lucide-react";
+import { Mail, Gift, Eye, EyeOff, Loader2, CheckCircle2, XCircle, AlertTriangle, ChevronRight, ChevronLeft, HelpCircle, ExternalLink, ShoppingCart, Package, TrendingUp, Check, MapPin, Ticket, User, KeyRound } from "lucide-react";
 import logo from "@/assets/logo.jpg";
 import { signIn, signUp, type SignUpData, validateInviteCode } from "@/lib/auth";
 import { isValidCPF, isValidCNPJ } from "@/lib/cpfValidator";
@@ -34,6 +34,12 @@ const Auth = () => {
   const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
   const [signupExpired, setSignupExpired] = useState(false);
   const [countdown, setCountdown] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
+
+  // OTP state
+  const [otpValue, setOtpValue] = useState("");
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSuccess, setOtpSuccess] = useState(false);
 
   // Register state
   const [registerStep, setRegisterStep] = useState(1);
@@ -127,11 +133,12 @@ const Auth = () => {
 
     setIsResendingConfirmation(true);
     try {
-      const { error } = await supabase.auth.resend({ type: "signup", email: targetEmail });
-      if (error) throw error;
-      toast({ title: "E-mail reenviado!", description: "Verifique sua caixa de entrada." });
+      await supabase.functions.invoke('send-verification-otp', {
+        body: { email: targetEmail, userName: formData.fullName || "usuário" }
+      });
+      toast({ title: "Código reenviado!", description: "Verifique sua caixa de entrada." });
     } catch {
-      toast({ variant: "destructive", title: "Erro", description: "Não foi possível reenviar o e-mail." });
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível reenviar o código." });
     } finally {
       setIsResendingConfirmation(false);
     }
@@ -304,6 +311,45 @@ const Auth = () => {
     else if (provider === "outlook") window.open("https://outlook.live.com", "_blank");
   };
 
+  const handleVerifyOtp = async () => {
+    if (otpValue.length !== 6) {
+      setOtpError("Digite o código completo de 6 dígitos.");
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    setOtpError(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-email-otp', {
+        body: { email: formData.email, otp: otpValue }
+      });
+
+      if (error || !data?.success) {
+        setOtpError(data?.error || "Código incorreto. Verifique e tente novamente.");
+        return;
+      }
+
+      setOtpSuccess(true);
+      toast({ title: "E-mail verificado!", description: "Sua conta está ativa. Redirecionando..." });
+      
+      // Auto login after verification
+      try {
+        await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+        setTimeout(() => navigate("/dashboard"), 2000);
+      } catch {
+        setTimeout(() => navigate("/auth"), 3000);
+      }
+    } catch (err: any) {
+      setOtpError("Erro ao verificar código. Tente novamente.");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
   const validateStep1 = () => {
     if (!formData.fullName.trim()) { setAuthError(docType === "cnpj" ? "Nome fantasia da empresa é obrigatório." : "Nome completo é obrigatório."); return false; }
     const docValue = formData.cpf.replace(/\D/g, "");
@@ -396,9 +442,21 @@ const Auth = () => {
         });
       }
 
+      // Send OTP email
+      try {
+        await supabase.functions.invoke('send-verification-otp', {
+          body: { email: formData.email, userName: formData.fullName }
+        });
+      } catch (otpErr) {
+        console.error("Error sending OTP:", otpErr);
+      }
+
       setAccountCreated(true);
       setRegisterStep(4);
-      toast({ title: "Conta criada!", description: "Enviamos um link de confirmação para seu e-mail." });
+      setOtpValue("");
+      setOtpError(null);
+      setOtpSuccess(false);
+      toast({ title: "Conta criada!", description: "Enviamos um código de 6 dígitos para seu e-mail." });
 
     } catch (error: any) {
       const errorMsg = (error.message || "").toLowerCase();
@@ -434,6 +492,9 @@ const Auth = () => {
     setInviteCode("");
     setCodeValidationStatus("idle");
     setAccountCreated(false);
+    setOtpValue("");
+    setOtpError(null);
+    setOtpSuccess(false);
   };
 
   const StepIndicator = ({ step, label, icon: Icon }: { step: number; label: string; icon: any }) => (
@@ -1184,69 +1245,132 @@ const Auth = () => {
                   </div>
                 )}
 
-                {/* Step 4 */}
+                {/* Step 4 - OTP Verification */}
                 {registerStep === 4 && (
                   <div className="space-y-6 animate-fade-in">
-                    <div className="text-center mb-6">
-                      <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-primary/10">
-                        <Mail className="w-12 h-12 text-primary" />
+                    {otpSuccess ? (
+                      <div className="text-center space-y-4">
+                        <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-accent/10">
+                          <CheckCircle2 className="w-12 h-12 text-accent" />
+                        </div>
+                        <h3 className="font-bold text-2xl text-accent">E-mail verificado!</h3>
+                        <p className="text-sm text-muted-foreground">Sua conta está ativa. Redirecionando...</p>
+                        <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mt-4" />
                       </div>
-                      <h3 className="font-bold text-2xl text-foreground">
-                        Confirme seu {getEmailProvider(formData.email) === "gmail" ? "Gmail" : "Outlook"}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mt-3">Foi enviado um link de confirmação para:</p>
-                      <p className="font-bold text-primary text-lg mt-2 break-all bg-primary/5 py-2 px-4 rounded-lg inline-block">
-                        {formData.email}
-                      </p>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="text-center mb-4">
+                          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-primary/10">
+                            <KeyRound className="w-12 h-12 text-primary" />
+                          </div>
+                          <h3 className="font-bold text-2xl text-foreground">
+                            Digite o código de verificação
+                          </h3>
+                          <p className="text-sm text-muted-foreground mt-3">
+                            Enviamos um código de 6 dígitos para:
+                          </p>
+                          <p className="font-bold text-primary text-lg mt-2 break-all bg-primary/5 py-2 px-4 rounded-lg inline-block">
+                            {formData.email}
+                          </p>
+                        </div>
 
-                    <div className="bg-gradient-to-r from-destructive/15 to-destructive/5 rounded-xl p-5 border border-destructive/30">
-                      <p className="text-sm text-destructive text-center font-bold">
-                        ⚠️ Sua conta só será ativada após confirmar o e-mail!
-                      </p>
-                      <p className="text-xs text-destructive/80 text-center mt-2">
-                        Sem a confirmação, você não conseguirá fazer login.
-                      </p>
-                    </div>
+                        <div className="flex justify-center gap-2">
+                          {[0, 1, 2, 3, 4, 5].map((index) => (
+                            <input
+                              key={index}
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={1}
+                              value={otpValue[index] || ""}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, "");
+                                if (val.length <= 1) {
+                                  const newOtp = otpValue.split("");
+                                  newOtp[index] = val;
+                                  const joined = newOtp.join("").slice(0, 6);
+                                  setOtpValue(joined);
+                                  setOtpError(null);
+                                  if (val && index < 5) {
+                                    const next = e.target.nextElementSibling as HTMLInputElement;
+                                    next?.focus();
+                                  }
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Backspace" && !otpValue[index] && index > 0) {
+                                  const prev = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                  prev?.focus();
+                                  const newOtp = otpValue.split("");
+                                  newOtp[index - 1] = "";
+                                  setOtpValue(newOtp.join(""));
+                                }
+                              }}
+                              onPaste={(e) => {
+                                e.preventDefault();
+                                const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+                                setOtpValue(pasted);
+                                setOtpError(null);
+                              }}
+                              className={`w-12 h-14 text-center text-2xl font-bold rounded-xl border-2 bg-muted/30 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                                otpError
+                                  ? "border-destructive text-destructive"
+                                  : otpValue[index]
+                                    ? "border-primary text-primary"
+                                    : "border-border/50 text-foreground"
+                              }`}
+                              disabled={isVerifyingOtp}
+                            />
+                          ))}
+                        </div>
 
-                    <div className="bg-muted/20 rounded-xl p-4 border border-border/30 text-center">
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Lembrete:</strong> Só aceitamos <span className="text-primary font-semibold">@gmail.com</span> ou <span className="text-primary font-semibold">@outlook.com</span>
-                      </p>
-                    </div>
+                        {otpError && (
+                          <p className="text-sm text-destructive text-center font-medium">{otpError}</p>
+                        )}
 
-                    <Button
-                      type="button"
-                      onClick={openEmailApp}
-                      className="w-full h-16 text-lg font-bold bg-gradient-to-r from-primary via-primary to-primary/90 hover:from-primary/90 hover:via-primary hover:to-primary shadow-xl hover:shadow-2xl hover:shadow-primary/30 transition-all duration-300 rounded-xl"
-                    >
-                      <ExternalLink className="mr-3 h-6 w-6" />
-                      {getEmailProvider(formData.email) === "gmail" ? "Abrir Gmail" : "Abrir Outlook"}
-                    </Button>
+                        <div className="bg-gradient-to-r from-muted/30 to-muted/10 rounded-xl p-4 border border-border/30 text-center">
+                          <p className="text-xs text-muted-foreground">
+                            Verifique também a pasta de <strong>spam</strong> do seu e-mail. O código expira em 15 minutos.
+                          </p>
+                        </div>
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleResendConfirmationEmail()}
-                      className="w-full h-14 rounded-xl border-border/50 hover:bg-muted/50"
-                      disabled={isResendingConfirmation}
-                    >
-                      {isResendingConfirmation ? (
-                        <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Reenviando...</>
-                      ) : (
-                        "Reenviar e-mail de confirmação"
-                      )}
-                    </Button>
+                        <Button
+                          type="button"
+                          onClick={handleVerifyOtp}
+                          className="w-full h-16 text-lg font-bold bg-gradient-to-r from-primary via-primary to-primary/90 hover:from-primary/90 hover:via-primary hover:to-primary shadow-xl hover:shadow-2xl hover:shadow-primary/30 transition-all duration-300 rounded-xl"
+                          disabled={isVerifyingOtp || otpValue.length !== 6}
+                        >
+                          {isVerifyingOtp ? (
+                            <><Loader2 className="mr-2 h-6 w-6 animate-spin" />Verificando...</>
+                          ) : (
+                            <><CheckCircle2 className="mr-3 h-6 w-6" />Verificar Código</>
+                          )}
+                        </Button>
 
-                    <Button type="button" variant="ghost" onClick={resetForm} className="w-full h-12 text-muted-foreground hover:text-foreground">
-                      Voltar para o Login
-                    </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => handleResendConfirmationEmail()}
+                          className="w-full h-14 rounded-xl border-border/50 hover:bg-muted/50"
+                          disabled={isResendingConfirmation}
+                        >
+                          {isResendingConfirmation ? (
+                            <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Reenviando...</>
+                          ) : (
+                            "Reenviar código"
+                          )}
+                        </Button>
 
-                    <p className="text-sm text-center text-muted-foreground pt-2">
-                      {hasInviteCode && codeValidationStatus === "valid"
-                        ? "🎉 Após confirmar, você terá 1 mês + 3 dias grátis!"
-                        : "Após confirmar, você terá 3 dias de teste grátis!"}
-                    </p>
+                        <Button type="button" variant="ghost" onClick={resetForm} className="w-full h-12 text-muted-foreground hover:text-foreground">
+                          Voltar para o Login
+                        </Button>
+
+                        <p className="text-sm text-center text-muted-foreground pt-2">
+                          {hasInviteCode && codeValidationStatus === "valid"
+                            ? "🎉 Após verificar, você terá 1 mês + 3 dias grátis!"
+                            : "Após verificar, você terá 3 dias de teste grátis!"}
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
 
