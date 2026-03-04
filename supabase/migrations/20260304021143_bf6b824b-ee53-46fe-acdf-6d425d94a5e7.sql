@@ -1,1 +1,0 @@
-DROP FUNCTION IF EXISTS public.cleanup_old_queue_entries() CASCADE;
