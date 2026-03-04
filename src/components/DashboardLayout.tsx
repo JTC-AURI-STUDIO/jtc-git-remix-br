@@ -17,11 +17,14 @@ import {
   History,
   Truck,
   Gift,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import logo from "@/assets/logo.jpg";
 import { useSubscription } from "@/hooks/useSubscription";
 import { SubscriptionBlocker } from "@/components/SubscriptionBlocker";
+import { useThemeContext } from "@/components/ThemeProvider";
 
 // Rotas permitidas mesmo com assinatura expirada
 const ALLOWED_WHEN_EXPIRED = ["/dashboard", "/configuracoes", "/assinatura"];
@@ -34,6 +37,7 @@ const DashboardLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const { isExpired, isTrial } = useSubscription();
+  const { theme, toggleTheme } = useThemeContext();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -103,13 +107,23 @@ const DashboardLayout = () => {
           <img src={logo} alt="JTC FluxPDV Logo" className="w-10 h-10 rounded-full object-cover" />
           <h1 className="text-xl font-bold text-primary">JTC FluxPDV</h1>
         </Link>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
-          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="text-muted-foreground"
+          >
+            {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </Button>
+        </div>
       </header>
 
       {/* Menu Overlay */}
