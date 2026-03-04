@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useFormPersistence } from "@/hooks/useFormPersistence";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,9 @@ const CustomerForm = () => {
     address: "",
     phone: "",
   });
+
+  const setFormCb = useCallback((d: typeof form) => setForm(d), []);
+  const { clearPersisted } = useFormPersistence("customer_form", form, setFormCb, { enabled: !isEditing });
 
   const isMissingTableError = (error: any) =>
     error?.code === "PGRST205" || error?.code === "42P01";
@@ -102,6 +106,7 @@ const CustomerForm = () => {
         }
         toast({ title: "Cliente cadastrado com sucesso!" });
       }
+      clearPersisted();
       navigate("/clientes");
     } finally {
       setIsSaving(false);

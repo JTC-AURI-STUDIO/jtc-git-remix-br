@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useFormPersistence } from "@/hooks/useFormPersistence";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,6 +53,10 @@ const ProductForm = () => {
     hasStock: true,
     hasBarcode: true,
   });
+
+  // Persist form data for 24h (only for new products)
+  const setFormCb = useCallback((d: typeof form) => setForm(d), []);
+  const { clearPersisted } = useFormPersistence("product_form", form, setFormCb, { enabled: !isEditing });
 
   const isMissingTableError = (error: any) =>
     error?.code === "PGRST205" || error?.code === "42P01";
@@ -157,6 +162,7 @@ const ProductForm = () => {
         }
         toast({ title: "Produto criado com sucesso" });
       }
+      clearPersisted();
       navigate("/produtos");
     } finally {
       setIsSaving(false);
