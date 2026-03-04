@@ -97,7 +97,7 @@ const EmployeeForm = () => {
       const { data, error } = await (supabase.rpc as any)("check_email_available_for_employee", { check_email: email });
       if (error) throw error;
       if (data && data.length > 0) {
-        setEmailStatus({ checking: false, available: data[0].available, reason: data[0].available ? "" : "Este e-mail já está cadastrado no sistema" });
+        setEmailStatus({ checking: false, available: data[0].available, reason: data[0].reason || "" });
       }
     } catch {
       setEmailStatus({ checking: false, available: null, reason: "" });
