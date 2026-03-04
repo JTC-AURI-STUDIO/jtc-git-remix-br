@@ -112,6 +112,77 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_permissions: {
+        Row: {
+          allowed: boolean
+          created_at: string
+          employee_id: string
+          id: string
+          permission_key: string
+        }
+        Insert: {
+          allowed?: boolean
+          created_at?: string
+          employee_id: string
+          id?: string
+          permission_key: string
+        }
+        Update: {
+          allowed?: boolean
+          created_at?: string
+          employee_id?: string
+          id?: string
+          permission_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_permissions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          admin_id: string
+          cpf: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean
+          phone: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          admin_id: string
+          cpf: string
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          role?: string
+          user_id: string
+        }
+        Update: {
+          admin_id?: string
+          cpf?: string
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           barcode: string | null
@@ -530,6 +601,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_employee_permission: {
+        Args: { _permission_key: string; _user_id: string }
+        Returns: boolean
+      }
+      get_employee_admin_id: { Args: { _user_id: string }; Returns: string }
       get_profile_created_at_by_email: {
         Args: { p_email: string }
         Returns: {

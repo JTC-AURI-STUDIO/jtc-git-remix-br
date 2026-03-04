@@ -19,17 +19,20 @@ import {
   Gift,
   Sun,
   Moon,
+  UsersRound,
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import logo from "@/assets/logo.jpg";
 import { useSubscription } from "@/hooks/useSubscription";
 import { SubscriptionBlocker } from "@/components/SubscriptionBlocker";
 import { useThemeContext } from "@/components/ThemeProvider";
+import { PermissionsProvider, usePermissions } from "@/hooks/usePermissions";
+import { MENU_PERMISSIONS, ROUTE_PERMISSIONS } from "@/lib/permissions";
 
 // Rotas permitidas mesmo com assinatura expirada
 const ALLOWED_WHEN_EXPIRED = ["/dashboard", "/configuracoes", "/assinatura"];
 
-const DashboardLayout = () => {
+const DashboardLayoutInner = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState<User | null>(null);
@@ -38,9 +41,9 @@ const DashboardLayout = () => {
   const [loading, setLoading] = useState(true);
   const { isExpired, isTrial } = useSubscription();
   const { theme, toggleTheme } = useThemeContext();
+  const { isAdmin, hasPermission, loading: permLoading } = usePermissions();
 
   useEffect(() => {
-    // First get current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -54,14 +57,10 @@ const DashboardLayout = () => {
       supabase.functions.invoke("ensure-admin-role").catch(() => {});
     });
 
-    // Then listen for changes - but only redirect on explicit sign out
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Only update state, don't redirect on transient events
       setSession(session);
       setUser(session?.user ?? null);
       
-      // Only redirect to auth on explicit sign out (user clicked logout)
-      // TOKEN_REFRESHED failures or SIGNED_OUT from token issues should NOT redirect
       if (event === "SIGNED_OUT") {
         navigate("/auth");
       }
@@ -79,7 +78,7 @@ const DashboardLayout = () => {
     navigate("/auth");
   };
 
-  const menuItems = [
+  const allMenuItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: Package, label: "Produtos", path: "/produtos" },
     { icon: ShoppingCart, label: "Venda", path: "/pdv" },
@@ -90,9 +89,48 @@ const DashboardLayout = () => {
     { icon: Settings, label: "Configurações", path: "/configuracoes" },
     { icon: CreditCard, label: "Assinatura", path: "/assinatura" },
     { icon: Gift, label: "Resgate Semanal", path: "/resgate-semanal" },
+    // Only admins see Funcionários
+    ...(isAdmin ? [{ icon: UsersRound, label: "Funcionários", path: "/funcionarios" }] : []),
   ];
 
-  if (loading || !user || !session) {
+  // Filter menu items based on permissions
+  const menuItems = allMenuItems.filter((item) => {
+    // Dashboard always visible
+    if (item.path === "/dashboard") return true;
+    // Funcionários only for admins (already filtered above)
+    if (item.path === "/funcionarios") return true;
+    // Check permission
+    const permKey = MENU_PERMISSIONS[item.path];
+    if (permKey) return hasPermission(permKey);
+    return true;
+  });
+
+  // Check if current route is allowed for this employee
+  useEffect(() => {
+    if (permLoading || isAdmin) return;
+
+    const path = location.pathname;
+    // Dashboard and funcionarios are always accessible (funcionarios redirects itself)
+    if (path === "/dashboard") return;
+
+    // Find matching route permission
+    let requiredPerm = ROUTE_PERMISSIONS[path];
+    if (!requiredPerm) {
+      // Check prefix matches (e.g., /produtos/editar/123)
+      for (const [route, perm] of Object.entries(ROUTE_PERMISSIONS)) {
+        if (path.startsWith(route)) {
+          requiredPerm = perm;
+          break;
+        }
+      }
+    }
+
+    if (requiredPerm && !hasPermission(requiredPerm)) {
+      navigate("/dashboard");
+    }
+  }, [location.pathname, permLoading, isAdmin, hasPermission, navigate]);
+
+  if (loading || !user || !session || permLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -112,19 +150,10 @@ const DashboardLayout = () => {
           <h1 className="text-xl font-bold text-primary">JTC FluxPDV</h1>
         </Link>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            className="text-muted-foreground"
-          >
+          <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-muted-foreground">
             {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
+          <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </Button>
         </div>
@@ -144,7 +173,6 @@ const DashboardLayout = () => {
               {menuItems.map((item, index) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
-
                 return (
                   <motion.div
                     key={item.path}
@@ -152,10 +180,7 @@ const DashboardLayout = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.04, duration: 0.2 }}
                   >
-                    <Link
-                      to={item.path}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
+                    <Link to={item.path} onClick={() => setIsMobileMenuOpen(false)}>
                       <Button
                         variant={isActive ? "secondary" : "ghost"}
                         className="w-full justify-start gap-3 transition-all duration-150 active:scale-[0.97]"
@@ -176,10 +201,7 @@ const DashboardLayout = () => {
                 <Button
                   variant="ghost"
                   className="w-full justify-start gap-3 text-destructive hover:text-destructive transition-all duration-150 active:scale-[0.97]"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    handleLogout();
-                  }}
+                  onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }}
                 >
                   <LogOut className="w-5 h-5" />
                   Sair
@@ -206,8 +228,28 @@ const DashboardLayout = () => {
           )}
         </motion.div>
       </main>
-
     </div>
+  );
+};
+
+// Wrapper that provides PermissionsProvider
+const DashboardLayout = () => {
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserId(session?.user?.id ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return (
+    <PermissionsProvider userId={userId}>
+      <DashboardLayoutInner />
+    </PermissionsProvider>
   );
 };
 
