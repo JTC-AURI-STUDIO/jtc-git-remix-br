@@ -252,6 +252,7 @@ const Auth = () => {
 
       await signIn(identifier, password);
       toast({ title: "Bem-vindo!", description: "Login realizado com sucesso." });
+      navigate("/dashboard");
     } catch (error: any) {
       const errorMessage = error.message?.toLowerCase() || "";
       if (errorMessage.includes("email not confirmed") || errorMessage.includes("email_not_confirmed")) {
