@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { isValidCPF } from "@/lib/cpfValidator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,6 +69,11 @@ const EmployeeForm = () => {
     const clean = cpf.replace(/\D/g, "");
     if (clean.length !== 11) {
       setCpfStatus({ checking: false, available: null, reason: "" });
+      return;
+    }
+    // Client-side CPF validation first
+    if (!isValidCPF(clean)) {
+      setCpfStatus({ checking: false, available: false, reason: "CPF inválido – os dígitos verificadores não conferem" });
       return;
     }
     setCpfStatus({ checking: true, available: null, reason: "" });
