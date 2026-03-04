@@ -34,15 +34,14 @@ serve(async (req) => {
 
     if (!userRole) throw new Error('Apenas administradores podem criar funcionários');
 
-    const { full_name, cpf, password, permissions } = await req.json();
+    const { full_name, email, cpf, password, cargo, description, permissions } = await req.json();
 
-    if (!full_name || !cpf || !password) {
-      throw new Error('Nome, CPF e senha são obrigatórios');
+    if (!full_name || !cpf || !password || !email) {
+      throw new Error('Nome, e-mail, CPF e senha são obrigatórios');
     }
 
-    // Clean CPF for email generation
+    // Clean CPF
     const cleanCpf = cpf.replace(/\D/g, '');
-    const syntheticEmail = `emp_${cleanCpf}@employee.jtcflux.internal`;
 
     // Check if employee with this CPF already exists for this admin
     const { data: existing } = await supabaseAdmin
@@ -54,9 +53,9 @@ serve(async (req) => {
 
     if (existing) throw new Error('Já existe um funcionário com este CPF');
 
-    // Create auth user
+    // Create auth user with the real email, auto-confirm so no email verification needed
     const { data: newUser, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
-      email: syntheticEmail,
+      email,
       password,
       email_confirm: true,
       user_metadata: {
@@ -76,9 +75,11 @@ serve(async (req) => {
         user_id: newUser.user.id,
         admin_id: user.id,
         full_name,
-        email: syntheticEmail,
+        email,
         cpf: cleanCpf,
         role: 'user',
+        cargo: cargo || 'caixa',
+        description: description || null,
       })
       .select('id')
       .single();

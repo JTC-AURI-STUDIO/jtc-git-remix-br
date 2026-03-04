@@ -147,8 +147,10 @@ export type Database = {
       employees: {
         Row: {
           admin_id: string
+          cargo: string
           cpf: string
           created_at: string
+          description: string | null
           email: string
           full_name: string
           id: string
@@ -159,8 +161,10 @@ export type Database = {
         }
         Insert: {
           admin_id: string
+          cargo?: string
           cpf: string
           created_at?: string
+          description?: string | null
           email: string
           full_name: string
           id?: string
@@ -171,8 +175,10 @@ export type Database = {
         }
         Update: {
           admin_id?: string
+          cargo?: string
           cpf?: string
           created_at?: string
+          description?: string | null
           email?: string
           full_name?: string
           id?: string
