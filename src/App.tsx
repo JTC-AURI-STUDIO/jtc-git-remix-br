@@ -10,12 +10,15 @@ import Dashboard from "./pages/Dashboard";
 import Auri from "./pages/Auri";
 import Subscription from "./pages/Subscription";
 import Products from "./pages/Products";
+import ProductForm from "./pages/ProductForm";
 import POS from "./pages/POS";
 import Customers from "./pages/Customers";
+import CustomerForm from "./pages/CustomerForm";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import SalesHistory from "./pages/SalesHistory";
 import Suppliers from "./pages/Suppliers";
+import SupplierForm from "./pages/SupplierForm";
 import WeeklyRedemption from "./pages/WeeklyRedemption";
 import DeleteAccount from "./pages/DeleteAccount";
 import DashboardLayout from "./components/DashboardLayout";
@@ -40,12 +43,18 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/assinatura" element={<Subscription />} />
             <Route path="/produtos" element={<Products />} />
+            <Route path="/produtos/novo" element={<ProductForm />} />
+            <Route path="/produtos/editar/:id" element={<ProductForm />} />
             <Route path="/pdv" element={<POS />} />
             <Route path="/clientes" element={<Customers />} />
+            <Route path="/clientes/novo" element={<CustomerForm />} />
+            <Route path="/clientes/editar/:id" element={<CustomerForm />} />
             <Route path="/historico" element={<SalesHistory />} />
             <Route path="/relatorios" element={<Reports />} />
             <Route path="/configuracoes" element={<Settings />} />
             <Route path="/fornecedores" element={<Suppliers />} />
+            <Route path="/fornecedores/novo" element={<SupplierForm />} />
+            <Route path="/fornecedores/editar/:id" element={<SupplierForm />} />
             <Route path="/resgate-semanal" element={<WeeklyRedemption />} />
             <Route path="/auri" element={<Auri />} />
             <Route path="/excluir-minha-conta" element={<DeleteAccount />} />

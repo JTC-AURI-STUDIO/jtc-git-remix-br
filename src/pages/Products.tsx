@@ -1,20 +1,17 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import PageLoader from "@/components/PageLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Package, Search, MoreVertical, Download, Upload, Camera } from "lucide-react";
-import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { ImageUpload } from "@/components/ImageUpload";
+import { Plus, Pencil, Trash2, Package, Search, MoreVertical, Download, Upload } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 import SubscriptionBlocker from "@/components/SubscriptionBlocker";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -46,6 +43,7 @@ interface Supplier {
 }
 
 const Products = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -596,195 +594,10 @@ const Products = () => {
               className="hidden"
             />
             
-            <Dialog open={isProductDialogOpen} onOpenChange={(open) => {
-              if (!open) resetProductForm();
-              setIsProductDialogOpen(open);
-            }}>
-              <DialogTrigger asChild>
-                <Button onClick={() => { resetProductForm(); setIsProductDialogOpen(true); }} className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:scale-[1.02]">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Produto
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{editingProduct ? "Editar Produto" : "Novo Produto"}</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Nome *</Label>
-                      <Input
-                        value={productForm.name}
-                        onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tipo de Produto *</Label>
-                      <Select
-                        value={productForm.product_type}
-                        onValueChange={(value: "peso" | "unidade" | "servico") => setProductForm({ ...productForm, product_type: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unidade">Unidade</SelectItem>
-                          <SelectItem value="peso">Peso (kg)</SelectItem>
-                          <SelectItem value="servico">Serviço</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Categoria</Label>
-                      <Select
-                        value={productForm.category_id}
-                        onValueChange={(value) => setProductForm({ ...productForm, category_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.filter(c => !c.parent_id).map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Estoque Atual *</Label>
-                      <Input
-                        type="number"
-                        value={productForm.stock_quantity}
-                        onChange={(e) => setProductForm({ ...productForm, stock_quantity: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Descrição</Label>
-                    <Textarea
-                      value={productForm.description}
-                      onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Preço de Custo</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={productForm.cost_price}
-                        onChange={(e) => setProductForm({ ...productForm, cost_price: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Preço de Venda *</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={productForm.price}
-                        onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Preço Promocional</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={productForm.promotional_price}
-                      onChange={(e) => setProductForm({ ...productForm, promotional_price: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Código de Barras</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={productForm.barcode}
-                        onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setIsBarcodeScannerOpen(true)}
-                      >
-                        <Camera className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        checked={productForm.hasSupplier}
-                        onCheckedChange={(checked) => setProductForm({ ...productForm, hasSupplier: checked, supplier_id: checked ? productForm.supplier_id : "" })}
-                      />
-                      <Label>Tem Fornecedor?</Label>
-                    </div>
-
-                    {productForm.hasSupplier && (
-                      <div className="space-y-2">
-                        <Label>Fornecedor</Label>
-                        <Select
-                          value={productForm.supplier_id}
-                          onValueChange={(value) => setProductForm({ ...productForm, supplier_id: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o fornecedor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {suppliers.map((supplier) => (
-                              <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-
-                  <ImageUpload
-                    bucket="product-photos"
-                    currentImageUrl={productForm.photo_url}
-                    onImageUploaded={(url) => setProductForm({ ...productForm, photo_url: url })}
-                    label="Foto do Produto (opcional)"
-                  />
-
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={productForm.is_active}
-                      onCheckedChange={(checked) => setProductForm({ ...productForm, is_active: checked })}
-                    />
-                    <Label>Produto Ativo</Label>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={resetProductForm} disabled={isSavingProduct}>Cancelar</Button>
-                  <Button onClick={handleSaveProduct} disabled={isSavingProduct}>
-                    {isSavingProduct ? "Salvando..." : "Salvar"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {/* Barcode Scanner for Products */}
-            <BarcodeScanner
-              isOpen={isBarcodeScannerOpen}
-              onClose={() => setIsBarcodeScannerOpen(false)}
-              onScan={(barcode) => {
-                setProductForm({ ...productForm, barcode });
-                // Não precisa chamar setIsBarcodeScannerOpen(false) aqui
-                // pois o BarcodeScanner já faz isso no handleClose
-              }}
-            />
+            <Button onClick={() => navigate("/produtos/novo")} className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:scale-[1.02]">
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Produto
+            </Button>
           </div>
 
           <div className="border rounded-lg overflow-hidden">
@@ -819,7 +632,7 @@ const Products = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditProduct(product)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/produtos/editar/${product.id}`)}>
                             <Pencil className="h-3 w-3" />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteProduct(product.id)}>
